@@ -1,0 +1,27 @@
+# Role: GLC grammar for 4chan markup structure (first-class artifact).
+# Connects to: formal/markup_regex AST, classic features, eval.
+# - Tolerante a truncamiento (~2000 caracteres) -> parse parcial
+# - AST alimenta: extractor de citas y features estructurales
+
+start: post
+
+post: line*
+
+line: greentext_line
+    | quoteline
+    | plaintext
+    | blank
+
+greentext_line: ">" content
+quoteline: ">>" NUMBER content?
+plaintext: content
+blank: NEWLINE
+
+content: /[^\n\r]*/
+
+NUMBER: /\d+/
+
+%import common.WS
+%import common.NEWLINE
+%ignore WS
+PYTHON
