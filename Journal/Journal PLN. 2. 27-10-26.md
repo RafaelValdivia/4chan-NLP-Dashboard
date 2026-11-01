@@ -1,9 +1,5 @@
 # Journal PLN — Entrada 2 (27-10-2026)
 
-> Entrada redactada el 31-10-2026 a partir de la implementación del 27-10-2026
-> (capas `formal` e `ingest`). Documenta lo efectivamente construido, lo que se
-> desvía del plan de la entrada 1 y lo que queda pendiente.
-
 ## Resumen
 
 Se implementaron las capas **formal** (esquemas, limpieza, normalización,
