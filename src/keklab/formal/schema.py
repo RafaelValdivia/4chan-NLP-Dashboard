@@ -70,4 +70,3 @@ class Entity(BaseModel):
     canonical_id: str | None = None
     method: Literal["gliner", "spacy", "rules"] = "gliner"
     confidence: float | None = None
-PYTHON

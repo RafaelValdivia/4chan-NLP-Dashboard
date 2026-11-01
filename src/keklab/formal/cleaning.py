@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import html
 from typing import Literal
 
 from keklab.formal.markup_regex import (
@@ -41,9 +40,10 @@ def clean_post(text: str, source: Literal["kek", "fourplebs"] = "kek") -> tuple[
         else:
             stripped = strip_markup_plain(text)
 
-    # Buscar quotes en texto unescaped (>> o &gt;&gt;)
-    quotes = extract_quotes(html.unescape(text))
-    greentext_count = count_greentext(html.unescape(text))
+    # Buscar quotes en texto unescaped (>> o &gt;&gt;); los extractores
+    # normalizan entidades HTML y tratan `<br>` como salto de línea.
+    quotes = extract_quotes(text)
+    greentext_count = count_greentext(text)
     text_clean = normalize_text(stripped)
     return text_clean, quotes, greentext_count
 

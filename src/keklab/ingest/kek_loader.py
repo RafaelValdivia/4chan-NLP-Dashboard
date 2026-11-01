@@ -9,12 +9,19 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
+from numbers import Real
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Literal
 
 import pandas as pd
 
-from keklab.common.io import _con, _src_ndjson, write_parquet
+from keklab.common.io import (
+    ParquetPartWriter,
+    _con,
+    _src_ndjson,
+    iter_ndjson,
+    write_parquet,
+)
 from keklab.common.logging import get_logger
 from keklab.formal.cleaning import clean_post
 from keklab.formal.features import post_structural_features, thread_features
@@ -27,6 +34,26 @@ def _content_hash(text: str) -> str:
     """SHA256 hash del texto limpio para deduplicación."""
     h = hashlib.sha256((text or "").encode("utf-8")).hexdigest()
     return h
+
+
+def _is_missing(value) -> bool:
+    """True for None/NaN/NaT coming from pandas or DuckDB."""
+    if value is None:
+        return True
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def _as_text(value) -> str:
+    """Coerce a DataFrame scalar to text, mapping missing values to ''."""
+    return "" if _is_missing(value) else str(value)
+
+
+def _optional_text(value) -> str | None:
+    """Coerce a DataFrame scalar to text, mapping missing values to None."""
+    return None if _is_missing(value) else str(value)
 
 
 def load_kek_ndjson(path: str | Path, *, limit_threads: int | None = None) -> pd.DataFrame:
@@ -44,42 +71,72 @@ def load_kek_ndjson(path: str | Path, *, limit_threads: int | None = None) -> pd
     )
 
 
+def _flatten_thread_posts(thread: dict) -> Iterator[dict]:
+    """Yield one flat row per post from a ROTLK thread object."""
+    posts = thread.get("posts") or []
+    if not posts:
+        return
+
+    first = posts[0] if isinstance(posts[0], dict) else {}
+    thread_id = str(first.get("no") or thread.get("no") or "")
+
+    for p in posts:
+        if not isinstance(p, dict):
+            continue
+        yield {
+            "post_id": str(p.get("no") or ""),
+            "thread_id": thread_id,
+            "raw_html": p.get("com"),
+            "time_unix": p.get("time"),
+            "resto": p.get("resto"),
+            "subject": p.get("sub"),
+            "country": p.get("country"),
+            "filename": p.get("filename"),
+            "tim": p.get("tim"),
+        }
+
+
 def ndjson_expand_to_parquet(
     src: str | Path,
     dst: str | Path,
     *,
+    batch_size: int = 50_000,
     con=None,
 ) -> None:
     """
-    Aplana hilos ROTLK: unnest posts -> un post por fila, SIN cargar todo en memoria.
-    Usa DuckDB COPY.
+    Aplana hilos ROTLK: un post por fila, leyendo el NDJSON línea por línea.
+
+    No usa `read_json_auto` (que infiere esquema recorriendo el archivo): el
+    streaming real se hace con `iter_ndjson`. Cada lote se escribe como part
+    parquet y se consolida al final con DuckDB.
     """
-    c = _con(con)
-    own = con is None
+    writer = ParquetPartWriter(dst, con=con)
+    rows: list[dict] = []
+    threads = 0
+    posts = 0
+
     try:
-        src_sql = _src_ndjson(src)
-        sql = f"""
-        COPY (
-          SELECT
-            p.no::VARCHAR AS post_id,
-            (t.posts[1]).no::VARCHAR AS thread_id,
-            p.com AS raw_html,
-            p.time AS time_unix,
-            p.resto AS resto,
-            p.sub AS subject,
-            p.country AS country,
-            p.filename AS filename,
-            p.tim AS tim
-          FROM {src_sql} t
-          CROSS JOIN UNNEST(t.posts) AS p
-        ) TO '{dst}' (FORMAT PARQUET, COMPRESSION ZSTD)
-        """
-        Path(dst).parent.mkdir(parents=True, exist_ok=True)
-        c.execute(sql)
-        log.info(f"Expanded ROTLK ndjson -> parquet: {dst}")
-    finally:
-        if own:
-            c.close()
+        for thread in iter_ndjson(src):
+            threads += 1
+            for row in _flatten_thread_posts(thread):
+                rows.append(row)
+                posts += 1
+            if len(rows) >= batch_size:
+                writer.write(pd.DataFrame(rows))
+                rows = []
+
+        if rows:
+            writer.write(pd.DataFrame(rows))
+
+        out = writer.finish()
+    except Exception:
+        writer.abort()
+        raise
+
+    if out is None:
+        log.warning("No posts found in %s; nothing written to %s", src, dst)
+    else:
+        log.info("Expanded %d threads / %d posts -> %s", threads, posts, out)
 
 
 def iter_kek_posts_chunked(
@@ -108,22 +165,26 @@ def iter_kek_posts_chunked(
                 thread_htmls = [str(r.get("raw_html") or "") for _, r in thread_chunk.iterrows()]
                 tfeat = thread_features(thread_htmls)
                 for _, r in thread_chunk.iterrows():
-                    raw_html = r.get("raw_html") or ""
+                    raw_html = _as_text(r.get("raw_html"))
                     text_clean, quotes, greentext_count = clean_post(raw_html, source="kek")
                     pfeat = post_structural_features(raw_html)
                     ph = _content_hash(text_clean)
                     timev = r.get("time_unix")
-                    if isinstance(timev, (int, float)):
-                        ts = datetime.fromtimestamp(timev, tz=timezone.utc)
+                    if (
+                        isinstance(timev, Real)
+                        and not isinstance(timev, bool)
+                        and not _is_missing(timev)
+                    ):
+                        ts = datetime.fromtimestamp(float(timev), tz=timezone.utc)
                     else:
                         ts = datetime.now(timezone.utc)
-                    post_id = str(r.get("post_id") or "")
+                    post_id = _as_text(r.get("post_id"))
                     resto = r.get("resto")
-                    is_op = resto == 0
+                    is_op = (resto == 0) or (bool(post_id) and post_id == str(thread_id))
                     media_refs = []
-                    if r.get("filename"):
+                    if not _is_missing(r.get("filename")):
                         media_refs.append(str(r.get("filename")))
-                    if r.get("tim"):
+                    if not _is_missing(r.get("tim")):
                         media_refs.append(str(r.get("tim")))
                     out_rows.append(
                         Post(
@@ -132,11 +193,11 @@ def iter_kek_posts_chunked(
                             board="pol",
                             timestamp_utc=ts,
                             is_op=is_op,
-                            subject=r.get("subject"),
+                            subject=_optional_text(r.get("subject")),
                             raw_html=raw_html,
                             text_clean=text_clean,
                             quotes=quotes,
-                            country=r.get("country"),
+                            country=_optional_text(r.get("country")),
                             media_refs=media_refs,
                             source="kek",
                             content_hash=ph,
@@ -161,22 +222,34 @@ def canonicalize_kek_posts_chunked(
     chunk_size: int = 50_000,
     con=None,
 ) -> None:
-    """Canonicaliza ROTLK a parquet canónico por chunks. Sin acumular todo en memoria."""
-    first = True
-    for chunk_df in iter_kek_posts_chunked(expanded_parquet, chunk_size=chunk_size, con=con):
-        if chunk_df.empty:
-            continue
-        if first:
-            write_parquet(chunk_df, out_parquet)
-            first = False
-        else:
-            existing = pd.read_parquet(out_parquet)
-            combined = pd.concat([existing, chunk_df], ignore_index=True)
-            write_parquet(combined, out_parquet)
-    log.info(f"Canonicalized ROTLK -> {out_parquet}")
+    """
+    Canonicaliza ROTLK a parquet canónico por chunks.
+
+    Escribe un part por chunk y consolida al final: no relee/reescribe el
+    parquet acumulado en cada iteración.
+    """
+    writer = ParquetPartWriter(out_parquet, con=con)
+    try:
+        for chunk_df in iter_kek_posts_chunked(
+            expanded_parquet, chunk_size=chunk_size, con=con
+        ):
+            writer.write(chunk_df)
+
+        out = writer.finish()
+    except Exception:
+        writer.abort()
+        raise
+
+    if out is None:
+        log.warning("No posts canonicalized from %s", expanded_parquet)
+    else:
+        log.info("Canonicalized ROTLK -> %s", out)
 
 
-def canonicalize_fourplebs_thread(thread: dict, source: str = "fourplebs") -> list[dict]:
+def canonicalize_fourplebs_thread(
+    thread: dict,
+    source: Literal["kek", "fourplebs"] = "fourplebs",
+) -> list[dict]:
     """Canonicaliza un thread obtenido desde API de 4plebs usando formal.cleaning."""
     posts = thread.get("posts") or []
     if not posts:
@@ -189,14 +262,14 @@ def canonicalize_fourplebs_thread(thread: dict, source: str = "fourplebs") -> li
         text_clean, quotes, greentext_count = clean_post(raw_html, source=source)
         pfeat = post_structural_features(raw_html)
         timev = p.get("time")
-        if isinstance(timev, (int, float)):
-            ts = datetime.fromtimestamp(timev, tz=timezone.utc)
+        if isinstance(timev, Real) and not isinstance(timev, bool):
+            ts = datetime.fromtimestamp(float(timev), tz=timezone.utc)
         else:
             ts = datetime.now(timezone.utc)
         post_id = str(p.get("no") or "")
         thread_id = str(posts[0].get("no") or post_id)
         resto = p.get("resto")
-        is_op = resto == 0
+        is_op = (resto == 0) or (bool(post_id) and post_id == thread_id)
         ph = _content_hash(text_clean)
         media_refs = []
         if p.get("filename"):

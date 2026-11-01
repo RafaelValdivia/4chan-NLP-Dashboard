@@ -37,13 +37,16 @@ def has_html(text: str) -> bool:
 def extract_quotes(text: str) -> list[str]:
     if not text:
         return []
-    return QUOTE_RE.findall(text)
+    return QUOTE_RE.findall(html.unescape(text))
 
 
 def count_greentext(text: str) -> int:
     if not text:
         return 0
-    return len(GREENTEXT_RE.findall(text))
+    # `<br>` is a line boundary in raw 4chan HTML, so normalize it before
+    # looking for lines that start with `>`.
+    normalized = BR_RE.sub("\n", html.unescape(text))
+    return len(GREENTEXT_RE.findall(normalized))
 
 
 def strip_markup(text: str) -> str:
