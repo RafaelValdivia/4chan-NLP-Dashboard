@@ -1,0 +1,35 @@
+# Default keklab configuration.
+# Relative paths are resolved against the repository root. ${VAR}/$VAR are
+# expanded from the environment before validation.
+
+name: keklab
+seed: 1234
+
+paths:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  cache_dir: data/cache
+  configs_dir: configs
+  reports_dir: reports
+  registry_path: data/registry.jsonl
+
+ingest:
+  source: kek
+  batch_size: 50000
+  chunk_size: 50000
+  fourplebs:
+    base_url: https://a.4cdn.org/pol
+    cache_dir: data/cache/fourplebs
+    sleep: 1.0
+    timeout: 30.0
+  sample:
+    target_per_month: 50
+    random_state: 1234
+
+formal:
+  source: kek
+  max_text_chars: 2000
+  use_glc: false
+
+logging:
+  level: INFO

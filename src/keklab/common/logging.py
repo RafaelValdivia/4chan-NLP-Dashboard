@@ -19,11 +19,14 @@ def configure_logging(
 ) -> None:
     """Configure the `keklab` logger once."""
     global _CONFIGURED
+    logger = logging.getLogger("keklab")
+
     if _CONFIGURED:
+        if level is not None:
+            logger.setLevel(level)
         return
 
     resolved = level or os.environ.get("KEKLAB_LOG_LEVEL", "INFO")
-    logger = logging.getLogger("keklab")
     logger.setLevel(resolved)
     logger.propagate = False
 
