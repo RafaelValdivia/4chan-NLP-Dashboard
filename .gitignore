@@ -11,3 +11,8 @@ __pycache__/
 .venv/
 venv/
 
+# Local API caches (raw responses must not be versioned)
+data/cache/
+data/raw/fourplebs_cache/
+data/raw/fourplebs_archive/
+

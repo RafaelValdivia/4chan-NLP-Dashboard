@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Post(BaseModel):
@@ -52,14 +52,28 @@ class Thread(BaseModel):
 class Annotation(BaseModel):
     """Anotación. Oro = un solo anotador."""
     post_id: str
+    thread_id: str | None = None
+    source: Literal["kek", "fourplebs"] | None = None
+    period: Literal["hist_2016_2019", "recent_2020_plus"] | None = None
+    content_hash: str | None = None
     frame_labels: list[str] = Field(default_factory=list)
-    toxicity: float | None = None
-    threat: bool | None = None
+    toxicity: int | None = Field(default=None, ge=0, le=3)
     annotator: str
     round: int = 1
     tier: Literal["gold", "silver"] = "gold"
     guideline_version: str
+    annotated_utc: datetime | None = None
     notes: str | None = None
+
+    @field_validator("frame_labels")
+    @classmethod
+    def _validate_frame_labels(cls, value: list[str]) -> list[str]:
+        if not value:
+            return value
+        # Local import keeps the canonical vocabulary in the annotation layer.
+        from keklab.annotation.labels import normalize_frame_labels
+
+        return normalize_frame_labels(value)
 
 
 class Entity(BaseModel):

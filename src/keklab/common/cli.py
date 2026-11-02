@@ -7,6 +7,7 @@
 #   keklab ingest canonicalize data/expanded.parquet data/canonical.parquet
 #   keklab registry add dataset rotlk --path data/raw/rotlk.ndjson
 #   keklab registry list --kind dataset
+#   keklab annotate sample --source fourplebs --out data/samples/pilot.jsonl
 
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from keklab import __version__
+from keklab.annotation.cli import add_annotate_parser
 from keklab.common.config import dump_config, load_config, resolve_config_path
 from keklab.common.logging import configure_logging, get_logger
 from keklab.common.registry import (
@@ -294,6 +296,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_reg_show.add_argument("--json", action="store_true")
     p_reg_show.add_argument("--registry-file")
     p_reg_show.set_defaults(func=_cmd_registry_show)
+
+    # annotation
+    add_annotate_parser(sub)
 
     sub.add_parser("version", help="Print the version").set_defaults(func=_cmd_version)
 
