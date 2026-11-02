@@ -242,3 +242,61 @@ anotaciones previas que migrar.
 - La taxonomía es preliminar y puede cambiar tras el piloto.
 - La prevalencia de marcos raros es desconocida; el muestreo dirigido la
   mitigará para entrenamiento, no para estimación poblacional.
+
+## Implementación (02-11-2026)
+
+Se implementó la capa de anotación descrita arriba, sin generar todavía el
+piloto real. El estado queda así:
+
+| Artefacto | Estado |
+|---|---|
+| `docs/annotation_guidelines.md` | Codebook `v0` con definiciones, ejemplos ilustrativos, solapamientos, toxicidad y limitaciones. |
+| `annotation/labels.py` | Vocabulario canónico, descripciones, exclusividad y toggles. |
+| `annotation/schema.py` | `SamplePost`, contexto, `AnnotationRecord` y claves de reanudación. |
+| `annotation/store.py` | JSONL atómico, upsert por `(post_id, thread_id, source, round, annotator)`, reanudación, CSV/JSONL y estadísticas. |
+| `annotation/sampler.py` | Cliente de archivo 4plebs, muestreo aleatorio/dirigido y sampler de parquet canónico ROTLK. |
+| `annotation/agreement.py` | Kappa de Cohen, kappa cuadrática, F1 macro/micro y reporte self test-retest. |
+| `annotation/cli.py` | `keklab annotate sample/run/export/stats/agreement`. |
+| `formal/schema.py` | `threat` eliminado; `toxicity: int | None` en `0..3`; campos de trazabilidad. |
+
+### Decisiones de implementación
+
+- La muestra aleatoria y la dirigida se separan por `stratum.reason`; la
+  prevalencia solo se estima con la aleatoria.
+- El sampler de 4plebs pagina el índice y corta cuando una página queda fuera de
+  la ventana. El muestreo aleatorio alterna meses para no concentrarse en los
+  más recientes.
+- El sampler de ROTLK calcula la ventana desde el último timestamp del corpus,
+  no desde la fecha actual. Lee contexto de hilo por `thread_id` y evita
+  depender de `pytz` convirtiendo timestamps a epoch en SQL.
+- La CLI guarda con escritura atómica después de cada post y reanuda por ronda y
+  anotador; `b` permite volver y corregir.
+- El acuerdo se calcula entre dos archivos completos (ronda 1 y ronda 2), no
+  dentro de un mismo archivo.
+- El archivo de 4plebs responde `403` a `httpx`/`urllib` (filtro por huella
+  TLS), pero acepta `curl` con el mismo `User-Agent`. El cliente usa `curl`
+  cuando está disponible y cae a `httpx`/`urllib` si no. El smoke test real
+  devolvió índice, hilo y búsqueda correctamente.
+
+### Tests
+
+La suite pasa de 30 a 68 pruebas. Las nuevas cubren:
+
+- vocabulario, normalización, exclusividad y parsing de números;
+- validación de `AnnotationRecord` y round-trip de JSONL;
+- upsert, reanudación, export CSV/JSONL y estadísticas;
+- parsing de `index`, `thread` y `search` de 4plebs;
+- muestreo 4plebs con cliente falso (aleatorio + dirigido + contexto);
+- muestreo ROTLK sobre parquet canónico sintético, por mes y por término;
+- kappa, kappa cuadrática y F1 macro/micro;
+- CLI interactiva con entrada simulada y comandos `stats`/`export`/`agreement`.
+
+### Lo que falta
+
+- Correr el muestreo real de 4plebs y anotar el piloto. No hay conjunto oro
+  todavía, así que E0/E2 siguen bloqueados.
+- Validar el sampler de ROTLK con el dump real; solo se probó con parquet
+  sintético.
+- Medir latencia/cuotas reales de la API de archivo y ajustar `--sleep`.
+- Hacer el self test-retest tras una semana y congelar `v1` si el acuerdo es
+  aceptable.
