@@ -63,3 +63,42 @@ Orden de ejecución lógico del pipeline actual y decisiones de implementación.
 - 4plebs: siempre HTML. Usa `clean_post(text, source="fourplebs")`. Quotes extraídos de texto unescaped
 - Features a nivel hilo calculados sobre hilo completo e inyectados en cada post
 - Sin cargar dump ROTLK completo en memoria (DuckDB UNNEST + chunks)
+
+## Actualización: infraestructura de ejecución (02-11-2026)
+
+### Módulos nuevos
+
+| Archivo | Contenido |
+|---|---|
+| `src/keklab/common/config.py` | Carga YAML/JSON con `load_config()`, expansión de `${VAR}`, overrides por deep-merge y validación Pydantic (`KeklabConfig`). |
+| `src/keklab/common/registry.py` | Registro append-only en JSONL (`ArtifactRecord`) para datasets/modelos/runs/reports, con SHA256 y tamaño de archivo. |
+| `src/keklab/common/cli.py` | CLI `keklab`: `config`, `ingest`, `dedupe`, `registry` y `version`. |
+| `src/keklab/__init__.py` | Versión del paquete (`0.1.0`). |
+| `configs/default.yaml` | Configuración por defecto (rutas, ingest, formal, logging). |
+| `pyproject.toml` | Empaquetado `src/`, dependencias y entry point `keklab = keklab.common.cli:main`. |
+
+### Configuración
+
+Precedencia: `--config` > `KEKLAB_CONFIG` > `configs/default.yaml` > defaults
+internos. Las rutas relativas se resuelven contra la raíz del repo y las
+variables `${VAR}` se expanden desde el entorno antes de validar. Cada sección
+usa `extra="forbid"` para detectar claves desconocidas.
+
+### CLI
+
+| Comando | Función |
+|---|---|
+| `keklab config show [--json]` | Imprime la configuración efectiva. |
+| `keklab config validate` | Valida el archivo seleccionado. |
+| `keklab config dump <salida>` | Guarda la configuración efectiva. |
+| `keklab ingest expand <ndjson> <parquet>` | Aplana ROTLK a un post por fila. |
+| `keklab ingest canonicalize <parquet> <parquet>` | Canonicaliza a `Post`. |
+| `keklab ingest stats <parquet> [--json]` | Conteos de posts/hilos/OP y rango temporal. |
+| `keklab dedupe <parquet> <parquet>` | Aplica `dedupe_posts_df()`. |
+| `keklab registry add/list/show` | Registra y consulta artefactos. |
+
+### Tests
+
+La suite queda en 30 pruebas (streaming NDJSON, limpieza, canonicalización,
+dedupe, timestamps nulos, configuración, registro y CLI).
+

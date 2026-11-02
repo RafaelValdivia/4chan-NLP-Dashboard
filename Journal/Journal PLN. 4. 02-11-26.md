@@ -50,3 +50,62 @@ archivo esté disponible y su esquema pueda verificarse contra el contrato de
 - E0: bloqueado para resultados reales; el harness puede prepararse con
   fixtures.
 - E1–E6: no iniciados.
+
+## Actualización: infraestructura de ejecución
+
+Se completa la capa común pendiente de la Entrada 3 (`config.py`,
+`registry.py`, `cli.py`) y el paquete queda instalable/ejecutable.
+
+### Configuración (`common/config.py`)
+
+- Carga YAML o JSON con `load_config()` y validación Pydantic
+  (`KeklabConfig` → `PathsConfig`, `IngestConfig`, `FormalConfig`,
+  `LoggingConfig`).
+- Precedencia: `--config` > `KEKLAB_CONFIG` > `configs/default.yaml` >
+  defaults internos.
+- Expansión de `${VAR}`/`$VAR` desde el entorno y resolución de rutas
+  relativas contra la raíz del repositorio.
+- Overrides por deep-merge y `extra="forbid"` en cada sección para detectar
+  claves desconocidas.
+- `dump_config()` permite guardar la configuración efectiva de una corrida.
+- Archivo por defecto versionado: `configs/default.yaml`.
+
+### Registro (`common/registry.py`)
+
+- Registro append-only en JSONL (`data/registry.jsonl` por defecto,
+  configurable con `KEKLAB_REGISTRY_PATH`).
+- `ArtifactRecord` valida `kind` (`dataset`, `model`, `run`, `report`,
+  `config`), nombre, ruta, origen, parámetros y métricas.
+- Calcula SHA256 y tamaño de archivos existentes; permite registrar salidas
+  todavía no generadas.
+- API: `register_artifact()`, `load_registry()`, `list_artifacts()`,
+  `get_artifact()`, `latest_artifact()`.
+
+### CLI (`common/cli.py`)
+
+`keklab` queda como entry point (`pyproject.toml`):
+
+| Comando | Función |
+|---|---|
+| `config show/validate/dump` | Configuración efectiva y validación. |
+| `ingest expand/canonicalize/stats` | Flujo ROTLK desde NDJSON hasta parquet canónico. |
+| `dedupe` | Deduplicación sobre parquet. |
+| `registry add/list/show` | Alta y consulta de artefactos. |
+
+`ingest stats` reporta posts, hilos, OP y rango temporal usando DuckDB sin
+materializar el corpus en pandas.
+
+### Empaquetado y tests
+
+- `pyproject.toml` declara paquete `src/`, dependencias base y extras
+  `ingest`, `formal` y `dev`.
+- Se agregó `PyYAML` a las dependencias.
+- La suite pasa a **30 tests**: pipeline, configuración, registro y CLI.
+- El paquete se instaló en modo editable en `~/PyVenvs/NNnPLN` y el comando
+  `keklab` responde.
+
+### Próximo paso
+
+Esqueleto de E0/E2 desacoplado del corpus: comparación crudo vs saneado y
+representación + clasificador clásico sobre fixtures, sin resultados reales de
+ROTLK todavía.
