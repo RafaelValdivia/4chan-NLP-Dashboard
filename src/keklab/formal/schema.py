@@ -15,7 +15,7 @@ class Post(BaseModel):
     post_id: str
     thread_id: str
     board: str = "pol"
-    timestamp_utc: datetime
+    timestamp_utc: datetime | None = None
     is_op: bool = False
     subject: str | None = None
     raw_html: str | None = None

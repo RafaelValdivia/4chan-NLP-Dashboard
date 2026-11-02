@@ -175,9 +175,12 @@ def iter_kek_posts_chunked(
                         and not isinstance(timev, bool)
                         and not _is_missing(timev)
                     ):
-                        ts = datetime.fromtimestamp(float(timev), tz=timezone.utc)
+                        try:
+                            ts = datetime.fromtimestamp(float(timev), tz=timezone.utc)
+                        except Exception:
+                            ts = None
                     else:
-                        ts = datetime.now(timezone.utc)
+                        ts = None
                     post_id = _as_text(r.get("post_id"))
                     resto = r.get("resto")
                     is_op = (resto == 0) or (bool(post_id) and post_id == str(thread_id))
@@ -262,10 +265,17 @@ def canonicalize_fourplebs_thread(
         text_clean, quotes, greentext_count = clean_post(raw_html, source=source)
         pfeat = post_structural_features(raw_html)
         timev = p.get("time")
-        if isinstance(timev, Real) and not isinstance(timev, bool):
-            ts = datetime.fromtimestamp(float(timev), tz=timezone.utc)
+        if (
+            isinstance(timev, Real)
+            and not isinstance(timev, bool)
+            and not _is_missing(timev)
+        ):
+            try:
+                ts = datetime.fromtimestamp(float(timev), tz=timezone.utc)
+            except Exception:
+                ts = None
         else:
-            ts = datetime.now(timezone.utc)
+            ts = None
         post_id = str(p.get("no") or "")
         thread_id = str(posts[0].get("no") or post_id)
         resto = p.get("resto")

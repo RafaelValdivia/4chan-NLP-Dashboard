@@ -24,20 +24,33 @@ def content_hash(text: str) -> str:
 def dedupe_posts_df(df: pd.DataFrame) -> pd.DataFrame:
     """
     Deduplica posts.
-    1. Genera content_hash si no existe
-    2. Elimina duplicados por content_hash (ignora NaN)
-    3. Elimina duplicados por (thread_id, post_id)
+
+    1. Genera `content_hash` si no existe.
+    2. Elimina duplicados por `content_hash` **solo entre posts con texto**:
+       los posts vacíos comparten `SHA256("")` y no deben colapsarse.
+    3. Elimina duplicados por la clave natural `(thread_id, post_id)`.
     """
     before = len(df)
     df = df.copy()
-    if "content_hash" not in df.columns and "text_clean" in df.columns:
-        df["content_hash"] = df["text_clean"].apply(lambda x: content_hash(x) if isinstance(x, str) and x else None)
-    # por hash de contenido (no colapsar posts con hash None)
+
+    has_text_col = "text_clean" in df.columns
+    if "content_hash" not in df.columns and has_text_col:
+        df["content_hash"] = df["text_clean"].apply(
+            lambda x: content_hash(x) if isinstance(x, str) and x else None
+        )
+
     if "content_hash" in df.columns:
-        df = df.drop_duplicates(subset=["content_hash"], keep="first")
-    # por clave natural
+        if has_text_col:
+            has_text = df["text_clean"].fillna("").astype(str).str.len() > 0
+        else:
+            has_text = df["content_hash"].notna()
+
+        duplicate_hash = has_text & df["content_hash"].duplicated(keep="first")
+        df = df.loc[~duplicate_hash]
+
     if "thread_id" in df.columns and "post_id" in df.columns:
         df = df.drop_duplicates(subset=["thread_id", "post_id"])
+
     after = len(df)
     log.info(f"Deduplicación: {before} -> {after} (-{before - after})")
     return df
