@@ -76,7 +76,7 @@ def test_annotation_requires_valid_frames_and_toxicity():
     with pytest.raises(ValueError, match="At least one frame"):
         make_annotation(frames=())
     with pytest.raises(ValueError, match="cannot be combined"):
-        make_annotation(frames=("none", "gender"))
+        make_annotation(frames=("none", "antifeminism"))
 
     with pytest.raises(ValueError, match="Unknown frame label"):
         Annotation(
@@ -108,12 +108,12 @@ def test_store_upsert_updates_same_key_and_keeps_rounds(tmp_path):
     first = make_annotation(frames=("conspiracy",), toxicity=1)
     store.upsert(first)
 
-    updated = make_annotation(frames=("gender",), toxicity=2)
+    updated = make_annotation(frames=("antifeminism",), toxicity=2)
     store.upsert(updated)
 
     records = store.load()
     assert len(records) == 1
-    assert records[0].frame_labels == ["gender"]
+    assert records[0].frame_labels == ["antifeminism"]
     assert records[0].toxicity == 2
 
     second_round = make_annotation(round=2, annotator="tester")
@@ -148,15 +148,15 @@ def test_write_and_load_annotations(tmp_path):
 
 
 def test_export_csv_has_base_and_one_hot_columns(tmp_path):
-    records = [make_annotation(frames=("conspiracy", "gender"), toxicity=2)]
+    records = [make_annotation(frames=("conspiracy", "antifeminism"), toxicity=2)]
     text = export_csv(records)
 
     reader = csv.DictReader(io.StringIO(text))
     row = next(reader)
     assert row["post_id"] == "1"
-    assert row["frame_labels"] == "conspiracy|gender"
+    assert row["frame_labels"] == "conspiracy|antifeminism"
     assert row["conspiracy"] == "1"
-    assert row["gender"] == "1"
+    assert row["antifeminism"] == "1"
     assert row["antisemitism"] == "0"
     assert row["toxicity"] == "2"
 
@@ -178,7 +178,7 @@ def test_export_jsonl_roundtrips(tmp_path):
 def test_annotation_stats_summarizes_records():
     records = [
         make_annotation("1", frames=("conspiracy",), toxicity=0),
-        make_annotation("2", frames=("conspiracy", "gender"), toxicity=2),
+        make_annotation("2", frames=("conspiracy", "antifeminism"), toxicity=2),
         make_annotation("1", round=2, frames=("none",), toxicity=1),
     ]
 

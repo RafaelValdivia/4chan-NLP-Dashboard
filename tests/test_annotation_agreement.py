@@ -76,14 +76,14 @@ def test_multilabel_f1():
 
 def test_agreement_report_for_self_test_retest():
     round1 = [
-        make_annotation("1", ("conspiracy", "gender"), 1),
+        make_annotation("1", ("conspiracy", "antifeminism"), 1),
         make_annotation("2", ("none",), 0),
         make_annotation("3", ("rusophobia",), 2),
     ]
     round2 = [
         make_annotation("1", ("conspiracy",), 1, round=2),
         make_annotation("2", ("none",), 1, round=2),
-        make_annotation("3", ("rusophobia", "gender"), 2, round=2),
+        make_annotation("3", ("rusophobia", "antifeminism"), 2, round=2),
     ]
 
     report = agreement_report(round1, round2)
@@ -93,7 +93,7 @@ def test_agreement_report_for_self_test_retest():
     assert report["only_b"] == 0
     assert report["frames"]["conspiracy"]["kappa"] == 1.0
     assert report["frames"]["conspiracy"]["positive_both"] == 1
-    assert report["frames"]["gender"]["kappa"] < 1.0
+    assert report["frames"]["antifeminism"]["kappa"] < 1.0
     assert report["toxicity"]["n"] == 3
     assert report["toxicity"]["exact_agreement"] == pytest.approx(2 / 3)
     assert 0.0 <= report["toxicity"]["quadratic_weighted_kappa"] < 1.0
