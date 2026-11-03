@@ -14,6 +14,7 @@ from keklab.annotation.labels import (
     FRAME_LABELS,
     TOXICITY_DESCRIPTIONS,
     apply_frame_toggle,
+    format_frame_menu,
     parse_frame_numbers,
 )
 from keklab.annotation.sampler import (
@@ -191,6 +192,10 @@ def run_session(
     saved = 0
     index = 0
     quit_requested = False
+
+    # The menu is needed to use the numeric toggles: with 18 frames it does
+    # not fit on every sample, so show it once at the start of the session.
+    emit(format_frame_menu())
 
     while index < len(queue) and not quit_requested:
         sample = queue[index]

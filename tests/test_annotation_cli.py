@@ -142,6 +142,28 @@ def test_help_text_mentions_controls():
     assert "save" in HELP_TEXT
 
 
+def test_run_session_shows_frame_menu(tmp_path):
+    sample = make_sample()
+    out = tmp_path / "annotations.jsonl"
+    inputs = iter(["q"])
+    outputs: list[str] = []
+
+    run_session(
+        [sample],
+        out,
+        annotator="tester",
+        guideline="v0",
+        prompt=lambda _: next(inputs),
+        emit=outputs.append,
+    )
+
+    menu = "\n".join(outputs)
+    assert "racism" in menu
+    assert "transphobia" in menu
+    assert "homophobia" in menu
+    assert "18. unclear" in menu
+
+
 def make_record(post_id: str, round: int, frames: tuple[str, ...]) -> AnnotationRecord:
     return AnnotationRecord(
         post_id=post_id,
