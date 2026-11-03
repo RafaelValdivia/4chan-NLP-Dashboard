@@ -136,9 +136,11 @@ dedupe, timestamps nulos, configuración, registro y CLI).
   `httpx`/`urllib`; mantiene caché en disco y límite de tasa.
 - **ROTLK:** el mismo contrato sobre parquet canónico o, preferentemente,
   directamente sobre el `.tar.zst` externo. La ventana se calcula desde el
-  último timestamp del corpus, no desde la fecha actual. El muestreo directo
-  hace una sola pasada y mantiene reservorios por mes y por término; no
-  materializa el corpus ni escribe parquet intermedio.
+  último timestamp del corpus, no desde la fecha actual, y se filtra por
+  timestamp exacto, no solo por mes. El muestreo directo hace una sola pasada y
+  mantiene reservorios por mes y por término; no materializa el corpus ni
+  escribe parquet intermedio. Los posts cuyo texto limpio queda vacío se
+  descartan, y el cupo dirigido se reparte entre marcos.
 - La muestra aleatoria sirve para prevalencia; la dirigida solo para
   entrenamiento/calibración.
 
@@ -161,7 +163,7 @@ inter-anotador. Un kappa bajo obliga a revisar el codebook antes de congelar
 
 ### Tests
 
-La suite queda en 80 pruebas. Las nuevas cubren vocabulario y exclusividad,
+La suite queda en 83 pruebas. Las nuevas cubren vocabulario y exclusividad,
 validación de esquema, upsert/reanudación/export, parsing de la API de archivo,
 muestreo 4plebs y ROTLK con fixtures sintéticos, kappa/F1, la CLI interactiva y
 el streaming de archivos `.tar.zst`/NDJSON comprimido.
@@ -195,4 +197,10 @@ keklab annotate sample --source rotlk --months 24 --random 20 --targeted 10 \
 
 La ruta alternativa `--parquet` sigue disponible para cuando exista un parquet
 canónico; el dump crudo no se copia al repositorio.
+
+Piloto final: 3,397,911 hilos / 134,529,233 posts en 2,025 s, ventana
+`2017-11-11T10:15Z → 2019-11-01T10:15Z`, 30 samples (20 aleatorios + 10
+dirigidos), sin posts fuera de ventana ni textos limpios vacíos. Los aleatorios
+cubren 20 meses distintos; los dirigidos quedaron 4 `rusophobia`, 3
+`sinophobia` y 3 `accelerationism`.
 

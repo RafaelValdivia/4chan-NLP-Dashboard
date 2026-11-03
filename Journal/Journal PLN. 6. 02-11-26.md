@@ -66,7 +66,8 @@ sola pasada con reservorios.
 - Construye el `SamplePost` con contexto de OP y posts citados solo cuando un
   candidato entra al reservorio; no canonicaliza hilos descartados.
 - La ventana se ancla al último timestamp del corpus. Con `--months 24` y este
-  dump, la ventana es **2017-12 → 2019-11**.
+  dump, la ventana exacta es **2017-11-11T10:15Z → 2019-11-01T10:15Z**; los
+  meses calendario tocan 2017-11 y 2019-11.
 - La muestra dirigida también se filtra a la ventana, a diferencia del sampler
   anterior sobre parquet.
 - El término buscado se registra en `stratum.term`; el marco en
@@ -127,13 +128,24 @@ Smoke test real:
 by reason: {"random": 2, "targeted": 2}
 ```
 
-El piloto completo de 20 aleatorios + 10 dirigidos se lanzó con salida en:
+El piloto completo de 20 aleatorios + 10 dirigidos terminó en:
 
 ```
 data/samples/rotlk_pilot.jsonl
 ```
 
-(Resultado y distribución final se registran al cierre de la ejecución.)
+Resultado final:
+
+- 3,397,911 hilos / 134,529,233 posts / 2,025.0 s.
+- 30 samples: **20 aleatorios + 10 dirigidos**.
+- Aleatorios: un post por mes, 20 meses distintos entre 2017-11 y 2019-11.
+- Dirigidos: 4 `rusophobia`, 3 `sinophobia`, 3 `accelerationism`.
+- 30 posts y 30 hilos únicos; 0 fuera de la ventana; 0 con texto limpio vacío.
+- 27 samples traen contexto de OP; los otros 3 son el propio OP.
+- 21 posts padre citados en total.
+
+La auditoría de esta primera ejecución y las correcciones de borde están en la
+entrada 7.
 
 ## Limitaciones
 

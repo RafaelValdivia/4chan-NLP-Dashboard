@@ -81,4 +81,6 @@ El sampler de ROTLK se validó contra el dump real
 (`pol_0616-1119_labeled.tar.zst`, 113.86 GB descomprimidos) leyéndolo en sitio
 con `zstd` + `tarfile`: no se extrae ni se copia al repositorio. Los tests usan
 fixtures sintéticos que reproducen el contrato y también construyen archivos
-`.tar.zst` pequeños para probar el streaming.
+`.tar.zst` pequeños para probar el streaming. El piloto real quedó en
+`data/samples/rotlk_pilot.jsonl`: 30 samples (20 aleatorios + 10 dirigidos) en
+la ventana `2017-11-11 → 2019-11-01`.
