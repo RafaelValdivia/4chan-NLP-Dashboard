@@ -15,7 +15,7 @@ import urllib.request
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 try:  # optional HTTP client
     import httpx
@@ -28,6 +28,7 @@ import pandas as pd
 
 from keklab.annotation.labels import TARGETED_SEARCH_TERMS
 from keklab.annotation.schema import ContextPost, SampleContext, SamplePost
+from keklab.common.io import iter_ndjson
 from keklab.common.logging import get_logger
 from keklab.common.paths import CACHE_DIR
 from keklab.ingest.kek_loader import canonicalize_fourplebs_thread
@@ -36,6 +37,19 @@ log = get_logger(__name__)
 
 ARCHIVE_BASE = "https://archive.4plebs.org/_/api/chan"
 DEFAULT_USER_AGENT = "keklab/0.1 (research)"
+
+# Seed terms sorted longest-first so "russian" wins over "russia". Matching is
+# done on lowercased text: substring checks are much cheaper than a
+# case-insensitive regex over every post in a 114 GB stream.
+_TARGET_TERM_TO_FRAME: dict[str, str] = {
+    term.lower(): frame
+    for frame, terms in TARGETED_SEARCH_TERMS.items()
+    for term in terms
+}
+_TARGET_TERMS: tuple[tuple[str, str], ...] = tuple(
+    (term, _TARGET_TERM_TO_FRAME[term])
+    for term in sorted(_TARGET_TERM_TO_FRAME, key=len, reverse=True)
+)
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +105,18 @@ def _coerce_datetime(value: Any) -> datetime | None:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt
+
+
+def _epoch_value(value: Any) -> float | None:
+    """Cheap epoch extraction for the hot loop.
+
+    ROTLK timestamps are integers; avoid pandas/datetime coercion unless the
+    value is not numeric.
+    """
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    timestamp = _coerce_datetime(value)
+    return timestamp.timestamp() if timestamp is not None else None
 
 
 def _hash_text(text: str) -> str:
@@ -936,3 +962,375 @@ def sample_rotlk(
         return samples
     finally:
         con.close()
+
+
+# ---------------------------------------------------------------------------
+# Direct ROTLK streaming sampler (no extraction, no canonical parquet)
+# ---------------------------------------------------------------------------
+class _Reservoir:
+    """Uniform reservoir of at most `capacity` items (Algorithm R)."""
+
+    __slots__ = ("capacity", "items", "seen")
+
+    def __init__(self, capacity: int) -> None:
+        self.capacity = max(0, int(capacity))
+        self.items: list[SamplePost] = []
+        self.seen = 0
+
+    def offer(
+        self,
+        factory: Callable[[], SamplePost | None],
+        rng: random.Random,
+    ) -> bool:
+        """Offer a candidate, building it only when it is kept."""
+        if self.capacity <= 0:
+            return False
+
+        self.seen += 1
+        if len(self.items) < self.capacity:
+            item = factory()
+            if item is not None:
+                self.items.append(item)
+                return True
+            return False
+
+        index = rng.randrange(self.seen)
+        if index >= self.capacity:
+            return False
+
+        item = factory()
+        if item is None:
+            return False
+        self.items[index] = item
+        return True
+
+
+def _choose_post(
+    posts: Iterable[dict[str, Any]],
+    *,
+    want_text: bool,
+    rng: random.Random,
+) -> dict[str, Any] | None:
+    """Pick a post from a thread, filtered by text/metadata presence."""
+    candidates: list[dict[str, Any]] = []
+    for post in posts:
+        if not isinstance(post, dict):
+            continue
+        com = post.get("com")
+        has_text = isinstance(com, str) and bool(com.strip())
+        if has_text != want_text:
+            continue
+        if _epoch_value(post.get("time")) is None:
+            continue
+        candidates.append(post)
+    return rng.choice(candidates) if candidates else None
+
+
+def _match_frames(text: str) -> dict[str, str]:
+    """Return {frame: matched_term} for every seed term found in text."""
+    if not text:
+        return {}
+    lowered = text.lower()
+    matches: dict[str, str] = {}
+    for term, frame in _TARGET_TERMS:
+        if term in lowered:
+            matches.setdefault(frame, term)
+            if len(matches) == len(TARGETED_SEARCH_TERMS):
+                break
+    return matches
+
+
+def _thread_sample(
+    thread: dict[str, Any],
+    target_post_id: str,
+    stratum: dict[str, Any],
+) -> SamplePost | None:
+    """Canonicalize one thread and build its annotation sample."""
+    posts = thread.get("posts") or []
+    if not posts:
+        return None
+
+    try:
+        rows = canonicalize_fourplebs_thread({"posts": posts}, source="kek")
+        return build_sample(rows, target_post_id, stratum)
+    except Exception as exc:  # one bad thread must not abort a 114 GB pass
+        log.debug("Could not build ROTLK sample for %s: %s", target_post_id, exc)
+        return None
+
+
+def sample_rotlk_stream(
+    dataset: str | Path,
+    *,
+    random_count: int = 20,
+    targeted_count: int = 10,
+    months: int = 24,
+    seed: int = 13,
+    include_empty: int = 0,
+    limit_threads: int | None = None,
+) -> list[SamplePost]:
+    """Sample random + targeted posts directly from a ROTLK NDJSON source.
+
+    The source may be a plain `.ndjson`, `.ndjson.gz`, `.ndjson.zst` or a
+    `.tar.zst` archive containing NDJSON. A single pass keeps per-month
+    reservoirs, so the archive is read in place and never extracted.
+
+    The 24-month window is anchored to the newest timestamp in the data, not
+    to the current date. Random samples are stratified by month; targeted
+    samples use the seed terms in ``TARGETED_SEARCH_TERMS`` and are filtered
+    to the same window.
+    """
+    path = Path(dataset).expanduser()
+    if not path.exists():
+        raise FileNotFoundError(path)
+
+    rng = random.Random(seed)
+    frames = list(TARGETED_SEARCH_TERMS)
+    max_per_frame = max(1, math.ceil(targeted_count / max(len(frames), 1)))
+
+    random_res: dict[str, _Reservoir] = defaultdict(
+        lambda: _Reservoir(random_count)
+    )
+    empty_res: dict[str, _Reservoir] = defaultdict(
+        lambda: _Reservoir(include_empty)
+    )
+    target_res: dict[str, dict[str, _Reservoir]] = {
+        frame: defaultdict(lambda: _Reservoir(max_per_frame))
+        for frame in frames
+    }
+
+    max_epoch: float | None = None
+    threads = 0
+    posts_seen = 0
+    started = time.monotonic()
+
+    for thread in iter_ndjson(path):
+        if not isinstance(thread, dict):
+            continue
+
+        threads += 1
+        posts = [p for p in (thread.get("posts") or []) if isinstance(p, dict)]
+        posts_seen += len(posts)
+
+        for post in posts:
+            timestamp = _epoch_value(post.get("time"))
+            if timestamp is not None and (
+                max_epoch is None or timestamp > max_epoch
+            ):
+                max_epoch = timestamp
+
+        if random_count > 0:
+            target_post = _choose_post(posts, want_text=True, rng=rng)
+            if target_post is not None:
+                target_id = _text(target_post.get("no"))
+                timestamp = _coerce_datetime(target_post.get("time"))
+                if target_id and timestamp is not None:
+                    month = _month_key(timestamp)
+                    stratum = {"reason": "random", "month": month}
+                    random_res[month].offer(
+                        lambda thread=thread, post_id=target_id, st=stratum: (
+                            _thread_sample(thread, post_id, st)
+                        ),
+                        rng,
+                    )
+
+        if include_empty > 0:
+            target_post = _choose_post(posts, want_text=False, rng=rng)
+            if target_post is not None:
+                target_id = _text(target_post.get("no"))
+                timestamp = _coerce_datetime(target_post.get("time"))
+                if target_id and timestamp is not None:
+                    month = _month_key(timestamp)
+                    stratum = {"reason": "random_empty", "month": month}
+                    empty_res[month].offer(
+                        lambda thread=thread, post_id=target_id, st=stratum: (
+                            _thread_sample(thread, post_id, st)
+                        ),
+                        rng,
+                    )
+
+        if targeted_count > 0:
+            for post in posts:
+                com = post.get("com")
+                if not isinstance(com, str) or not com.strip():
+                    continue
+
+                matched = _match_frames(com)
+                if not matched:
+                    continue
+
+                target_id = _text(post.get("no"))
+                timestamp = _coerce_datetime(post.get("time"))
+                if not target_id or timestamp is None:
+                    continue
+
+                month = _month_key(timestamp)
+                for frame, term in matched.items():
+                    stratum = {
+                        "reason": "targeted",
+                        "frame": frame,
+                        "term": term,
+                        "month": month,
+                    }
+                    target_res[frame][month].offer(
+                        lambda thread=thread, post_id=target_id, st=stratum: (
+                            _thread_sample(thread, post_id, st)
+                        ),
+                        rng,
+                    )
+
+        if threads % 100_000 == 0:
+            log.info(
+                "ROTLK stream: %d threads, %d posts, %.0f s",
+                threads,
+                posts_seen,
+                time.monotonic() - started,
+            )
+
+        if limit_threads is not None and threads >= int(limit_threads):
+            log.info("Stopped ROTLK stream after %d threads", threads)
+            break
+
+    log.info(
+        "ROTLK stream finished: %d threads, %d posts in %.1f s",
+        threads,
+        posts_seen,
+        time.monotonic() - started,
+    )
+
+    if max_epoch is None:
+        log.warning("No timestamps found in %s", path)
+        return []
+
+    max_ts = _coerce_datetime(max_epoch)
+    if max_ts is None:
+        log.warning("Could not interpret dataset timestamp in %s", path)
+        return []
+
+    cutoff = _cutoff(months, max_ts)
+    cutoff_month = cutoff.strftime("%Y-%m")
+
+    samples: list[SamplePost] = []
+    used_posts: set[str] = set()
+    used_threads: set[str] = set()
+
+    # Random sample: preserve the per-month allocation used by the parquet
+    # sampler, but read each month's reservoir from the single pass.
+    if random_count > 0:
+        months_present = sorted(
+            month
+            for month in random_res
+            if month != "unknown" and month >= cutoff_month
+        )
+        allocation = _allocate_counts(random_count, months_present, rng)
+        for month in sorted(allocation):
+            need = allocation[month]
+            if need <= 0:
+                continue
+
+            candidates = list(random_res[month].items)
+            rng.shuffle(candidates)
+            picked = 0
+            for sample in candidates:
+                if picked >= need:
+                    break
+                if sample.post_id in used_posts or sample.thread_id in used_threads:
+                    continue
+                samples.append(sample)
+                used_posts.add(sample.post_id)
+                used_threads.add(sample.thread_id)
+                picked += 1
+
+            if picked < need:
+                log.warning(
+                    "Only %d/%d random ROTLK posts available for %s",
+                    picked,
+                    need,
+                    month,
+                )
+
+    # Targeted sample: collect candidates from the window, then take a
+    # balanced number per frame while avoiding threads already selected.
+    if targeted_count > 0:
+        pools: dict[str, list[SamplePost]] = {}
+        for frame in frames:
+            by_month = target_res[frame]
+            candidates = [
+                sample
+                for month in sorted(
+                    m for m in by_month if m != "unknown" and m >= cutoff_month
+                )
+                for sample in by_month[month].items
+            ]
+            rng.shuffle(candidates)
+            pools[frame] = candidates
+
+        per_frame: Counter[str] = Counter()
+        targeted_added = 0
+
+        def take(frame: str) -> SamplePost | None:
+            while pools[frame]:
+                sample = pools[frame].pop()
+                if sample.post_id in used_posts or sample.thread_id in used_threads:
+                    continue
+                used_posts.add(sample.post_id)
+                used_threads.add(sample.thread_id)
+                per_frame[frame] += 1
+                return sample
+            return None
+
+        for frame in frames:
+            while per_frame[frame] < max_per_frame and targeted_added < targeted_count:
+                sample = take(frame)
+                if sample is None:
+                    break
+                samples.append(sample)
+                targeted_added += 1
+
+        while targeted_added < targeted_count:
+            progressed = False
+            for frame in frames:
+                if targeted_added >= targeted_count:
+                    break
+                sample = take(frame)
+                if sample is not None:
+                    samples.append(sample)
+                    targeted_added += 1
+                    progressed = True
+            if not progressed:
+                break
+
+        if targeted_added < targeted_count:
+            log.warning(
+                "Only %d/%d targeted ROTLK posts sampled",
+                targeted_added,
+                targeted_count,
+            )
+
+    # Deliberately keep a few empty/media-only posts if requested.
+    if include_empty > 0:
+        empty_added = 0
+        candidates = [
+            sample
+            for month in sorted(empty_res)
+            if month != "unknown" and month >= cutoff_month
+            for sample in empty_res[month].items
+        ]
+        rng.shuffle(candidates)
+        for sample in candidates:
+            if empty_added >= include_empty:
+                break
+            if sample.post_id in used_posts or sample.thread_id in used_threads:
+                continue
+            samples.append(sample)
+            used_posts.add(sample.post_id)
+            used_threads.add(sample.thread_id)
+            empty_added += 1
+
+        if empty_added < include_empty:
+            log.warning(
+                "Only %d/%d empty ROTLK posts sampled",
+                empty_added,
+                include_empty,
+            )
+
+    return samples

@@ -7,7 +7,10 @@ import bz2
 import gzip
 import json
 import shutil
+import subprocess
+import tarfile
 from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -174,6 +177,114 @@ def _open_text(path: str | Path):
     return p.open("r", encoding="utf-8")
 
 
+def _is_tar_zstd(path: Path) -> bool:
+    """True for .tar.zst, .tar.zstd and .tzst archives."""
+    suffixes = [suffix.lower() for suffix in path.suffixes]
+    if suffixes[-1:] == [".tzst"]:
+        return True
+    return (
+        len(suffixes) >= 2
+        and suffixes[-2] == ".tar"
+        and suffixes[-1] in {".zst", ".zstd"}
+    )
+
+
+@contextmanager
+def _open_zstd_binary(path: Path):
+    """Open a zstd stream, preferring the Python 3.14 stdlib implementation."""
+    try:
+        from compression import zstd  # type: ignore[import-not-found]
+
+        with zstd.open(path, "rb") as fh:
+            yield fh
+        return
+    except ImportError:
+        pass
+
+    try:
+        import zstandard  # type: ignore[import-not-found]
+    except ImportError:
+        zstandard = None
+
+    if zstandard is not None:
+        with path.open("rb") as raw:
+            reader = zstandard.ZstdDecompressor().stream_reader(raw)
+            try:
+                yield reader
+            finally:
+                reader.close()
+        return
+
+    zstd_bin = shutil.which("zstd")
+    if not zstd_bin:
+        raise RuntimeError(
+            f"Cannot read {path}: install zstandard or the zstd CLI, "
+            "or use Python 3.14+."
+        )
+
+    proc = subprocess.Popen(
+        [zstd_bin, "-dc", str(path)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert proc.stdout is not None
+    try:
+        yield proc.stdout
+    finally:
+        proc.stdout.close()
+        if proc.poll() is None:
+            proc.terminate()
+        try:
+            _, stderr = proc.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            _, stderr = proc.communicate()
+        if proc.returncode not in (0, -13, 141) and stderr:
+            log.warning(
+                "zstd failed for %s: %s",
+                path,
+                stderr.decode("utf-8", "replace")[:300],
+            )
+
+
+def _iter_tar_zstd_lines(path: Path) -> Iterator[str]:
+    """Yield decoded lines from every NDJSON/JSONL member of a .tar.zst."""
+    found_member = False
+    with _open_zstd_binary(path) as raw:
+        with tarfile.open(fileobj=raw, mode="r|") as archive:
+            for member in archive:
+                if not member.isfile():
+                    continue
+                name = member.name.lower()
+                if not name.endswith((".ndjson", ".jsonl")):
+                    continue
+                found_member = True
+                fh = archive.extractfile(member)
+                if fh is None:
+                    continue
+                with fh:
+                    for line in fh:
+                        yield line.decode("utf-8", errors="replace")
+    if not found_member:
+        raise ValueError(f"No NDJSON/JSONL members found in {path}")
+
+
+def _iter_text_lines(path: Path) -> Iterator[str]:
+    """Yield text lines from plain, gzip/bz2, zstd or tar.zstd inputs."""
+    if _is_tar_zstd(path):
+        yield from _iter_tar_zstd_lines(path)
+        return
+
+    if path.suffix.lower() in {".zst", ".zstd"}:
+        with _open_zstd_binary(path) as raw:
+            for line in raw:
+                yield line.decode("utf-8", errors="replace")
+        return
+
+    with _open_text(path) as fh:
+        yield from fh
+
+
 def iter_ndjson(
     path: str | Path,
     *,
@@ -182,33 +293,33 @@ def iter_ndjson(
     """
     Stream a newline-delimited JSON file object by object.
 
-    Never materialises the full file. `.gz` and `.bz2` are handled by suffix.
-    Malformed lines are skipped with a warning when `skip_errors=True`.
+    Never materialises the full file. `.gz`, `.bz2`, `.zst`, `.tar.zst` and
+    `.tar.zstd` are handled by suffix. Malformed lines are skipped with a
+    warning when `skip_errors=True`.
     """
     p = Path(path).expanduser()
     if not p.exists():
         raise FileNotFoundError(p)
 
-    with _open_text(p) as fh:
-        for lineno, line in enumerate(fh, 1):
-            line = line.strip()
-            if not line:
-                continue
+    for lineno, line in enumerate(_iter_text_lines(p), 1):
+        line = line.strip()
+        if not line:
+            continue
 
-            try:
-                obj = json.loads(line)
-            except json.JSONDecodeError as exc:
-                if not skip_errors:
-                    raise ValueError(f"{p}:{lineno}: invalid JSON: {exc}") from exc
-                log.warning("Skipping malformed NDJSON at %s:%d (%s)", p, lineno, exc)
-                continue
+        try:
+            obj = json.loads(line)
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            if not skip_errors:
+                raise ValueError(f"{p}:{lineno}: invalid JSON: {exc}") from exc
+            log.warning("Skipping malformed NDJSON at %s:%d (%s)", p, lineno, exc)
+            continue
 
-            if isinstance(obj, dict):
-                yield obj
-            elif skip_errors:
-                log.warning("Skipping non-object NDJSON value at %s:%d", p, lineno)
-            else:
-                raise ValueError(f"{p}:{lineno}: expected a JSON object")
+        if isinstance(obj, dict):
+            yield obj
+        elif skip_errors:
+            log.warning("Skipping non-object NDJSON value at %s:%d", p, lineno)
+        else:
+            raise ValueError(f"{p}:{lineno}: expected a JSON object")
 
 
 def batched(iterable: Iterable[T], size: int) -> Iterator[list[T]]:
@@ -239,8 +350,7 @@ def iter_ndjson_batches(
 def count_ndjson_lines(path: str | Path) -> int:
     """Count non-empty lines in an NDJSON file without parsing them."""
     total = 0
-    with _open_text(path) as fh:
-        for line in fh:
-            if line.strip():
-                total += 1
+    for line in _iter_text_lines(Path(path).expanduser()):
+        if line.strip():
+            total += 1
     return total

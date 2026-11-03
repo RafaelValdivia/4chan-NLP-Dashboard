@@ -162,6 +162,29 @@ def test_annotate_parser_is_registered():
     assert args.annotate_command == "sample"
     assert args.random == 20
     assert args.targeted == 10
+    assert args.dataset is None
+    assert args.limit_threads is None
+
+
+def test_annotate_parser_accepts_rotlk_dataset():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "annotate",
+            "sample",
+            "--source",
+            "rotlk",
+            "--dataset",
+            "/tmp/pol.tar.zst",
+            "--limit-threads",
+            "50",
+            "--out",
+            "samples.jsonl",
+        ]
+    )
+    assert args.source == "rotlk"
+    assert args.dataset == "/tmp/pol.tar.zst"
+    assert args.limit_threads == 50
 
 
 def test_annotate_stats_export_and_agreement_cli(tmp_path, capsys):

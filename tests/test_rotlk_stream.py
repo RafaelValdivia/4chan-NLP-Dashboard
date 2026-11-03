@@ -1,0 +1,260 @@
+from __future__ import annotations
+
+import io
+import json
+import subprocess
+import tarfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
+
+from keklab.annotation.sampler import sample_rotlk_stream
+from keklab.common.io import count_ndjson_lines, iter_ndjson
+
+
+def _epoch(year: int, month: int, day: int) -> int:
+    return int(datetime(year, month, day, tzinfo=timezone.utc).timestamp())
+
+
+def _thread(
+    post_id: int,
+    timestamp: int,
+    com: str,
+    *,
+    replies: tuple[tuple[int, int, str], ...] = (),
+) -> dict:
+    posts = [{"no": post_id, "time": timestamp, "resto": 0, "com": com}]
+    for reply_id, reply_time, reply_com in replies:
+        posts.append(
+            {
+                "no": reply_id,
+                "time": reply_time,
+                "resto": post_id,
+                "com": reply_com,
+            }
+        )
+    return {"posts": posts}
+
+
+THREADS = [
+    _thread(
+        1,
+        _epoch(2021, 1, 10),
+        "OP general news",
+        replies=((2, _epoch(2021, 1, 11), "&gt;&gt;1 russia is dangerous"),),
+    ),
+    _thread(3, _epoch(2021, 2, 10), "china trade policy"),
+    _thread(4, _epoch(2021, 3, 10), "we must accelerate the collapse"),
+    _thread(5, _epoch(2021, 3, 20), "", replies=()),
+    _thread(6, _epoch(2021, 3, 25), "a plain post about the weather"),
+]
+
+
+def _ndjson(threads) -> str:
+    return "\n".join(json.dumps(thread) for thread in threads) + "\n"
+
+
+def _tar_bytes(members: dict[str, str]) -> bytes:
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as archive:
+        for name, text in members.items():
+            data = text.encode("utf-8")
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+    return buffer.getvalue()
+
+
+def _compress_zstd(data: bytes) -> bytes:
+    try:
+        from compression import zstd
+
+        return zstd.compress(data)
+    except ImportError:
+        pass
+
+    try:
+        result = subprocess.run(
+            ["zstd", "-q", "-c"],
+            input=data,
+            capture_output=True,
+            check=True,
+        )
+        return result.stdout
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        pytest.skip(f"no zstd compressor available: {exc}")
+
+
+def _write_tar_zst(path: Path, members: dict[str, str]) -> Path:
+    path.write_bytes(_compress_zstd(_tar_bytes(members)))
+    return path
+
+
+def test_iter_ndjson_reads_tar_zst(tmp_path):
+    path = _write_tar_zst(
+        tmp_path / "threads.tar.zst",
+        {"threads.ndjson": _ndjson(THREADS[:2])},
+    )
+
+    assert [thread["posts"][0]["no"] for thread in iter_ndjson(path)] == [1, 3]
+    assert count_ndjson_lines(path) == 2
+
+
+def test_iter_ndjson_reads_multiple_tar_members(tmp_path):
+    path = _write_tar_zst(
+        tmp_path / "threads.tar.zst",
+        {
+            "first.ndjson": _ndjson(THREADS[:1]),
+            "second.jsonl": _ndjson(THREADS[1:2]),
+        },
+    )
+
+    assert [thread["posts"][0]["no"] for thread in iter_ndjson(path)] == [1, 3]
+
+
+def test_iter_ndjson_skips_malformed_tar_lines(tmp_path):
+    content = _ndjson(THREADS[:1]) + "not-json\n" + _ndjson(THREADS[1:2])
+    path = _write_tar_zst(
+        tmp_path / "threads.tar.zst",
+        {"threads.ndjson": content},
+    )
+
+    assert [thread["posts"][0]["no"] for thread in iter_ndjson(path)] == [1, 3]
+
+
+def test_iter_ndjson_reads_zstd_ndjson(tmp_path):
+    path = tmp_path / "threads.ndjson.zst"
+    path.write_bytes(_compress_zstd(_ndjson(THREADS[:2]).encode("utf-8")))
+
+    assert [thread["posts"][0]["no"] for thread in iter_ndjson(path)] == [1, 3]
+
+
+def test_stream_random_stratifies_by_month(tmp_path):
+    path = _write_tar_zst(
+        tmp_path / "threads.tar.zst",
+        {"threads.ndjson": _ndjson(THREADS)},
+    )
+
+    samples = sample_rotlk_stream(
+        path,
+        random_count=3,
+        targeted_count=0,
+        months=12,
+        seed=7,
+    )
+
+    assert len(samples) == 3
+    assert {sample.source for sample in samples} == {"kek"}
+    assert {sample.stratum["month"] for sample in samples} == {
+        "2021-01",
+        "2021-02",
+        "2021-03",
+    }
+    assert all(sample.content_hash for sample in samples)
+    assert all(sample.text_clean.strip() for sample in samples)
+
+
+def test_stream_targeted_uses_terms_and_context(tmp_path):
+    path = _write_tar_zst(
+        tmp_path / "threads.tar.zst",
+        {"threads.ndjson": _ndjson(THREADS)},
+    )
+
+    samples = sample_rotlk_stream(
+        path,
+        random_count=0,
+        targeted_count=3,
+        months=12,
+        seed=7,
+    )
+
+    assert len(samples) == 3
+    assert {sample.stratum["frame"] for sample in samples} == {
+        "rusophobia",
+        "sinophobia",
+        "accelerationism",
+    }
+    by_frame = {sample.stratum["frame"]: sample for sample in samples}
+
+    russia = by_frame["rusophobia"]
+    assert "russia" in russia.text_clean.lower()
+    assert russia.context.op is not None
+    assert russia.context.op.post_id == "1"
+    assert {parent.post_id for parent in russia.context.parents} == {"1"}
+
+
+def test_stream_include_empty(tmp_path):
+    path = _write_tar_zst(
+        tmp_path / "threads.tar.zst",
+        {"threads.ndjson": _ndjson(THREADS)},
+    )
+
+    samples = sample_rotlk_stream(
+        path,
+        random_count=0,
+        targeted_count=0,
+        months=12,
+        seed=7,
+        include_empty=1,
+    )
+
+    assert len(samples) == 1
+    assert samples[0].text_clean == ""
+    assert samples[0].stratum["reason"] == "random_empty"
+
+
+def test_stream_limit_threads(tmp_path):
+    path = _write_tar_zst(
+        tmp_path / "threads.tar.zst",
+        {"threads.ndjson": _ndjson(THREADS)},
+    )
+
+    samples = sample_rotlk_stream(
+        path,
+        random_count=1,
+        targeted_count=0,
+        months=12,
+        seed=7,
+        limit_threads=1,
+    )
+
+    assert len(samples) == 1
+    assert samples[0].stratum["month"] == "2021-01"
+    assert samples[0].post_id in {"1", "2"}
+
+
+def test_stream_is_deterministic(tmp_path):
+    path = _write_tar_zst(
+        tmp_path / "threads.tar.zst",
+        {"threads.ndjson": _ndjson(THREADS)},
+    )
+
+    first = sample_rotlk_stream(
+        path, random_count=2, targeted_count=1, months=12, seed=21
+    )
+    second = sample_rotlk_stream(
+        path, random_count=2, targeted_count=1, months=12, seed=21
+    )
+
+    assert [
+        (sample.post_id, sample.thread_id, sample.stratum) for sample in first
+    ] == [
+        (sample.post_id, sample.thread_id, sample.stratum) for sample in second
+    ]
+
+
+def test_stream_reads_plain_ndjson(tmp_path):
+    path = tmp_path / "threads.ndjson"
+    path.write_text(_ndjson(THREADS), encoding="utf-8")
+
+    samples = sample_rotlk_stream(
+        path, random_count=1, targeted_count=0, months=12, seed=7
+    )
+
+    assert len(samples) == 1
+
+
+def test_stream_missing_file(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        sample_rotlk_stream(tmp_path / "missing.tar.zst")

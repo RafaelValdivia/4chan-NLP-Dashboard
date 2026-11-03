@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ingest = ["httpx>=0.27", "tenacity>=8.0"]
+ingest = ["httpx>=0.27", "tenacity>=8.0", "zstandard>=0.23"]
 formal = ["lark>=1.1"]
 dev = ["pytest>=8"]
 

@@ -20,6 +20,7 @@ from keklab.annotation.sampler import (
     FourplebsArchiveClient,
     sample_fourplebs,
     sample_rotlk,
+    sample_rotlk_stream,
 )
 from keklab.annotation.schema import (
     AnnotationRecord,
@@ -38,6 +39,7 @@ from keklab.annotation.store import (
     write_samples,
 )
 from keklab.common.logging import get_logger
+from keklab.common.paths import default_rotlk_dataset
 from keklab.formal.schema import Annotation
 
 log = get_logger(__name__)
@@ -312,16 +314,36 @@ def _cmd_annotate_sample(args: argparse.Namespace) -> int:
             client=client,
         )
     else:
-        if not args.parquet:
-            raise ValueError("--parquet is required when --source=rotlk")
-        samples = sample_rotlk(
-            args.parquet,
-            random_count=args.random,
-            targeted_count=args.targeted,
-            months=args.months,
-            seed=args.seed,
-            include_empty=args.include_empty,
-        )
+        dataset = getattr(args, "dataset", None) or default_rotlk_dataset()
+        parquet = getattr(args, "parquet", None)
+        if dataset and parquet:
+            raise ValueError(
+                "Use only one of --dataset or --parquet when --source=rotlk"
+            )
+        if dataset:
+            samples = sample_rotlk_stream(
+                dataset,
+                random_count=args.random,
+                targeted_count=args.targeted,
+                months=args.months,
+                seed=args.seed,
+                include_empty=args.include_empty,
+                limit_threads=getattr(args, "limit_threads", None),
+            )
+        elif parquet:
+            samples = sample_rotlk(
+                parquet,
+                random_count=args.random,
+                targeted_count=args.targeted,
+                months=args.months,
+                seed=args.seed,
+                include_empty=args.include_empty,
+            )
+        else:
+            raise ValueError(
+                "ROTLK sampling needs --dataset (or KEKLAB_ROTLK_DATASET) "
+                "or --parquet"
+            )
 
     if not samples:
         log.error("No samples produced; check the window, source and API access.")
@@ -461,7 +483,22 @@ def add_annotate_parser(subparsers: Any) -> argparse.ArgumentParser:
     p_sample.add_argument("--seed", type=int, default=13)
     p_sample.add_argument("--max-pages", type=int, default=200)
     p_sample.add_argument("--include-empty", type=int, default=0)
-    p_sample.add_argument("--parquet", help="Canonical parquet for --source=rotlk")
+    p_sample.add_argument(
+        "--dataset",
+        help=(
+            "ROTLK NDJSON or .tar.zst archive for --source=rotlk. "
+            "Defaults to KEKLAB_ROTLK_DATASET when set."
+        ),
+    )
+    p_sample.add_argument(
+        "--parquet",
+        help="Canonical ROTLK parquet for --source=rotlk (alternative to --dataset)",
+    )
+    p_sample.add_argument(
+        "--limit-threads",
+        type=int,
+        help="Stop after N threads (smoke tests on the real ROTLK dump)",
+    )
     p_sample.add_argument("--cache-dir", help="4plebs archive cache directory")
     p_sample.add_argument("--sleep", type=float, default=1.0)
     p_sample.set_defaults(func=_cmd_annotate_sample)

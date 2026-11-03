@@ -16,6 +16,18 @@ CACHE_DIR = Path(os.environ.get("KEKLAB_CACHE_DIR", DATA_DIR / "cache"))
 CONFIGS_DIR = Path(os.environ.get("KEKLAB_CONFIGS_DIR", PROJECT_ROOT / "configs"))
 REPORTS_DIR = Path(os.environ.get("KEKLAB_REPORTS_DIR", PROJECT_ROOT / "reports"))
 
+ROTLK_DATASET_ENV = "KEKLAB_ROTLK_DATASET"
+
+
+def default_rotlk_dataset() -> Path | None:
+    """Return the external ROTLK dump path from the environment, if set.
+
+    The dump is intentionally not copied into the repository; point this at
+    the mounted archive (for example a `.tar.zst` file).
+    """
+    value = os.environ.get(ROTLK_DATASET_ENV)
+    return Path(value).expanduser() if value else None
+
 
 def ensure_dirs(*dirs: str | Path) -> None:
     """Create the given directories (and parents) if they do not exist."""
