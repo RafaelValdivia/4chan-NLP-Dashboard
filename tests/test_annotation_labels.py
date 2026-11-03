@@ -3,8 +3,10 @@ from __future__ import annotations
 import pytest
 
 from keklab.annotation.labels import (
+    FRAME_DESCRIPTIONS,
     FRAME_INDEX,
     FRAME_LABELS,
+    TARGETED_SEARCH_TERMS,
     apply_frame_toggle,
     normalize_frame_labels,
     parse_frame_numbers,
@@ -12,15 +14,49 @@ from keklab.annotation.labels import (
 
 
 def test_vocabulary_is_unique_and_indexed():
-    assert len(FRAME_LABELS) == 13
+    assert len(FRAME_LABELS) == 18
     assert len(set(FRAME_LABELS)) == len(FRAME_LABELS)
     assert FRAME_INDEX[1] == "conspiracy"
-    assert FRAME_INDEX[13] == "unclear"
+    assert FRAME_INDEX[18] == "unclear"
+    assert {
+        "racism",
+        "eugenics",
+        "ableism",
+        "transphobia",
+        "homophobia",
+    } <= set(FRAME_LABELS)
+
+
+def test_every_frame_has_a_description():
+    assert set(FRAME_DESCRIPTIONS) == set(FRAME_LABELS)
+
+
+def test_targeted_search_terms_use_known_frames():
+    assert set(TARGETED_SEARCH_TERMS) <= set(FRAME_LABELS)
+    assert {
+        "racism",
+        "eugenics",
+        "ableism",
+        "transphobia",
+        "homophobia",
+    } <= set(TARGETED_SEARCH_TERMS)
 
 
 def test_normalize_is_case_insensitive_and_deduplicates():
     labels = normalize_frame_labels([" Conspiracy ", "conspiracy", "GENDER"])
     assert labels == ["conspiracy", "gender"]
+
+
+def test_new_prejudice_frames_are_accepted():
+    assert normalize_frame_labels(
+        ["Racism", "Eugenics", "Ableism", "Transphobia", "Homophobia"]
+    ) == [
+        "racism",
+        "eugenics",
+        "ableism",
+        "transphobia",
+        "homophobia",
+    ]
 
 
 def test_unknown_label_is_rejected():
@@ -61,7 +97,7 @@ def test_toggle_frames_and_exclusive_flags():
 
 
 def test_parse_frame_numbers():
-    assert parse_frame_numbers("1, 3 13") == [
+    assert parse_frame_numbers("1, 4 18") == [
         "conspiracy",
         "antisemitism",
         "unclear",
