@@ -50,6 +50,11 @@ keklab registry show <artifact-id>
 # anotación humana (ver docs/annotation_guidelines.md)
 keklab annotate sample --source fourplebs --months 24 --random 20 --targeted 10 \
   --out data/samples/pilot_fourplebs.jsonl
+
+# ROTLK real: se lee el .tar.zst montado en el disco externo, sin copiarlo
+export KEKLAB_ROTLK_DATASET=/run/media/flynnso/Archivos/pol_0616-1119_labeled.tar.zst
+keklab annotate sample --source rotlk --months 24 --random 20 --targeted 10 \
+  --seed 13 --out data/samples/rotlk_pilot.jsonl
 keklab annotate run --input data/samples/pilot_fourplebs.jsonl \
   --annotator flynnso --guideline v0 --out data/annotations/pilot_r1.jsonl
 keklab annotate stats --input data/annotations/pilot_r1.jsonl
@@ -72,5 +77,8 @@ raíz del repositorio y las variables `${VAR}` se expanden desde el entorno.
 ~/PyVenvs/NNnPLN/bin/python -m pytest -q
 ```
 
-La validación con el corpus real de ROTLK está pospuesta; los tests usan
-fixtures sintéticos que reproducen su contrato.
+El sampler de ROTLK se validó contra el dump real
+(`pol_0616-1119_labeled.tar.zst`, 113.86 GB descomprimidos) leyéndolo en sitio
+con `zstd` + `tarfile`: no se extrae ni se copia al repositorio. Los tests usan
+fixtures sintéticos que reproducen el contrato y también construyen archivos
+`.tar.zst` pequeños para probar el streaming.

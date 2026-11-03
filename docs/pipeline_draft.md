@@ -111,7 +111,7 @@ dedupe, timestamps nulos, configuración, registro y CLI).
 | `src/keklab/annotation/labels.py` | Vocabulario canónico de 13 marcos, descripciones, reglas de exclusividad (`none`/`unclear`) y toggles. |
 | `src/keklab/annotation/schema.py` | `SamplePost`, `SampleContext`, `ContextPost` y `AnnotationRecord`; claves de reanudación. |
 | `src/keklab/annotation/store.py` | JSONL atómico, upsert por clave, reanudación, export CSV/JSONL y estadísticas. |
-| `src/keklab/annotation/sampler.py` | Cliente de archivo 4plebs (index/thread/search), muestreo aleatorio estratificado y dirigido, y muestreo desde parquet canónico de ROTLK. |
+| `src/keklab/annotation/sampler.py` | Cliente de archivo 4plebs (index/thread/search), muestreo aleatorio estratificado y dirigido, muestreo desde parquet canónico de ROTLK y muestreo directo desde el dump `.tar.zst` sin extraerlo. |
 | `src/keklab/annotation/agreement.py` | Kappa de Cohen, kappa cuadrática ponderada, F1 macro/micro y reporte self test-retest. |
 | `src/keklab/annotation/cli.py` | CLI interactiva `keklab annotate` con auto-guardado y reanudación. |
 | `docs/annotation_guidelines.md` | Codebook v0: definiciones, ejemplos, solapamientos, toxicidad y limitaciones. |
@@ -134,8 +134,11 @@ dedupe, timestamps nulos, configuración, registro y CLI).
   búsqueda. Se guarda el OP y los posts citados como contexto. El cliente usa
   `curl` cuando está disponible porque el archivo rechaza la huella TLS de
   `httpx`/`urllib`; mantiene caché en disco y límite de tasa.
-- **ROTLK:** el mismo contrato sobre parquet canónico. La ventana se calcula
-  desde el último timestamp del corpus, no desde la fecha actual.
+- **ROTLK:** el mismo contrato sobre parquet canónico o, preferentemente,
+  directamente sobre el `.tar.zst` externo. La ventana se calcula desde el
+  último timestamp del corpus, no desde la fecha actual. El muestreo directo
+  hace una sola pasada y mantiene reservorios por mes y por término; no
+  materializa el corpus ni escribe parquet intermedio.
 - La muestra aleatoria sirve para prevalencia; la dirigida solo para
   entrenamiento/calibración.
 
@@ -158,10 +161,38 @@ inter-anotador. Un kappa bajo obliga a revisar el codebook antes de congelar
 
 ### Tests
 
-La suite queda en 68 pruebas. Las nuevas cubren vocabulario y exclusividad,
+La suite queda en 80 pruebas. Las nuevas cubren vocabulario y exclusividad,
 validación de esquema, upsert/reanudación/export, parsing de la API de archivo,
-muestreo 4plebs y ROTLK con fixtures sintéticos, kappa/F1 y la CLI interactiva.
+muestreo 4plebs y ROTLK con fixtures sintéticos, kappa/F1, la CLI interactiva y
+el streaming de archivos `.tar.zst`/NDJSON comprimido.
 
-La validación del sampler de ROTLK con el dump real sigue bloqueada hasta que el
-dump esté disponible; los tests usan parquet sintético.
+## Actualización: ROTLK real (02-11-2026)
+
+El dump está en un disco externo ya montado:
+
+```
+/run/media/flynnso/Archivos/pol_0616-1119_labeled.tar.zst
+```
+
+- 22.4 GiB comprimidos; un frame zstd con un único miembro tar,
+  `pol_062016-112019_labeled.ndjson`, de 113.86 GB descomprimidos.
+- Cada línea es un hilo con `posts`; el sample inicial confirma UTF-8/JSON
+  válidos y cobertura 2016-06 → 2019-11.
+- Los posts incluyen `perspectives` (Perspective API) y `entities`/`entitites`
+  (NER), además de campos de 4chan. **No hay etiquetas humanas de marcos**, así
+  que la anotación sigue siendo necesaria.
+- Descomprimir el archivo completo tarda ~155 s; una pasada de muestreo con
+  parseo JSON y búsqueda de términos tarda decenas de minutos. Por eso el
+  sampler directo usa reservorios y no escribe una copia canónica.
+- `KEKLAB_ROTLK_DATASET` apunta al archivo; `--dataset` lo puede sobrescribir.
+  `--limit-threads` sirve para smoke tests sin recorrer el corpus completo.
+
+```bash
+export KEKLAB_ROTLK_DATASET=/run/media/flynnso/Archivos/pol_0616-1119_labeled.tar.zst
+keklab annotate sample --source rotlk --months 24 --random 20 --targeted 10 \
+  --seed 13 --out data/samples/rotlk_pilot.jsonl
+```
+
+La ruta alternativa `--parquet` sigue disponible para cuando exista un parquet
+canónico; el dump crudo no se copia al repositorio.
 

@@ -204,8 +204,18 @@ keklab annotate sample \
   `accelerationism`) para entrenamiento/calibración. No sirve para prevalencia.
 - Se pueden conservar algunos posts vacíos o solo-imagen con
   `--include-empty N` para probar `none`.
-- `--source rotlk --parquet <canonical.parquet>` usa el mismo formato de salida
-  cuando el dump esté disponible.
+- Para ROTLK se lee el dump comprimido en sitio, sin copiarlo ni extraerlo:
+
+  ```bash
+  export KEKLAB_ROTLK_DATASET=/run/media/flynnso/Archivos/pol_0616-1119_labeled.tar.zst
+  keklab annotate sample --source rotlk --months 24 --random 20 --targeted 10 \
+    --seed 13 --out data/samples/rotlk_pilot.jsonl
+  ```
+
+  `--dataset <archivo>` sobrescribe la variable de entorno y acepta `.ndjson`,
+  `.ndjson.gz`, `.ndjson.zst` o `.tar.zst`. La alternativa
+  `--parquet <canonical.parquet>` sigue disponible si ya existe un parquet
+  canónico. `--limit-threads N` permite smoke tests sobre el corpus real.
 
 ### 2. Anotación
 
