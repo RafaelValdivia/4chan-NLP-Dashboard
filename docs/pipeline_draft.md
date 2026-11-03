@@ -108,7 +108,7 @@ dedupe, timestamps nulos, configuración, registro y CLI).
 
 | Archivo | Contenido |
 |---|---|
-| `src/keklab/annotation/labels.py` | Vocabulario canónico de 13 marcos, descripciones, reglas de exclusividad (`none`/`unclear`) y toggles. |
+| `src/keklab/annotation/labels.py` | Vocabulario canónico de 18 marcos, descripciones, reglas de exclusividad (`none`/`unclear`) y toggles. |
 | `src/keklab/annotation/schema.py` | `SamplePost`, `SampleContext`, `ContextPost` y `AnnotationRecord`; claves de reanudación. |
 | `src/keklab/annotation/store.py` | JSONL atómico, upsert por clave, reanudación, export CSV/JSONL y estadísticas. |
 | `src/keklab/annotation/sampler.py` | Cliente de archivo 4plebs (index/thread/search), muestreo aleatorio estratificado y dirigido, muestreo desde parquet canónico de ROTLK y muestreo directo desde el dump `.tar.zst` sin extraerlo. |
@@ -130,7 +130,8 @@ dedupe, timestamps nulos, configuración, registro y CLI).
 ### Muestreo
 
 - **4plebs:** ventana de 24 meses; 20 posts aleatorios estratificados por mes y
-  10 dirigidos a `rusophobia`, `sinophobia` y `accelerationism` mediante
+  10 dirigidos a marcos raros (`rusophobia`, `sinophobia`, `accelerationism`,
+  `racism`, `eugenics`, `ableism`, `transphobia`, `homophobia`) mediante
   búsqueda. Se guarda el OP y los posts citados como contexto. El cliente usa
   `curl` cuando está disponible porque el archivo rechaza la huella TLS de
   `httpx`/`urllib`; mantiene caché en disco y límite de tasa.
@@ -163,7 +164,7 @@ inter-anotador. Un kappa bajo obliga a revisar el codebook antes de congelar
 
 ### Tests
 
-La suite queda en 83 pruebas. Las nuevas cubren vocabulario y exclusividad,
+La suite queda en 87 pruebas. Las nuevas cubren vocabulario y exclusividad,
 validación de esquema, upsert/reanudación/export, parsing de la API de archivo,
 muestreo 4plebs y ROTLK con fixtures sintéticos, kappa/F1, la CLI interactiva y
 el streaming de archivos `.tar.zst`/NDJSON comprimido.

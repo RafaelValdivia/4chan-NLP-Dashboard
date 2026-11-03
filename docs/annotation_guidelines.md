@@ -23,18 +23,23 @@ centrales para el post.
 | # | Slug | Definición |
 |---|---|---|
 | 1 | `conspiracy` | Afirmación de un plan o coordinación secreta de élites, agencias o grupos. |
-| 2 | `ethnonationalism` | Pureza, superioridad o jerarquía étnica/nacional genérica **no** cubierta por una etiqueta de grupo específico. |
-| 3 | `antisemitism` | Hostilidad, tropos o prejuicio contra judíos. |
-| 4 | `islamophobia` | Hostilidad o prejuicio contra musulmanes o el islam. |
-| 5 | `rusophobia` | Hostilidad o prejuicio contra rusos o Rusia. |
-| 6 | `sinophobia` | Hostilidad o prejuicio contra chinos o China. |
-| 7 | `institutional_distrust` | Desconfianza generalizada hacia Estado, medios, academia o elecciones, sin afirmación conspirativa explícita. |
-| 8 | `gender` | Política de género y sexualidad: antifeminismo, roles de género, masculinidad, temas LGBTQ+. |
-| 9 | `violence_glorification` | Elogio, celebración o incitación a la violencia (no mera discusión o noticia). |
-| 10 | `accelerationism` | Deseo de acelerar el colapso, el conflicto o la desestabilización. |
-| 11 | `meta_topic` | Meta-discusión del tablero, moderación, raids, cultura online. |
-| 12 | `none` | Ningún marco reconocible. |
-| 13 | `unclear` | Contexto insuficiente, truncamiento o ambigüedad genuina. |
+| 2 | `ethnonationalism` | Pureza, superioridad o jerarquía nacional/étnica genérica **no** cubierta por una etiqueta más específica. |
+| 3 | `racism` | Prejuicio, slur, segregación o jerarquía racial/étnica **no** cubierta por una etiqueta de grupo específica. |
+| 4 | `antisemitism` | Hostilidad, tropos o prejuicio contra judíos. |
+| 5 | `islamophobia` | Hostilidad o prejuicio contra musulmanes o el islam. |
+| 6 | `rusophobia` | Hostilidad o prejuicio contra rusos o Rusia. |
+| 7 | `sinophobia` | Hostilidad o prejuicio contra chinos o China. |
+| 8 | `eugenics` | Defensa o aprobación de cría selectiva, jerarquía genética, esterilización o “mejorar” el acervo genético. |
+| 9 | `ableism` | Prejuicio, burla o discriminación contra personas con discapacidad o enfermedad mental. |
+| 10 | `gender` | Política de género: antifeminismo, roles de género, masculinidad, temas LGBTQ+ generales. |
+| 11 | `transphobia` | Hostilidad, burla o prejuicio contra personas trans o negación de su identidad. |
+| 12 | `homophobia` | Hostilidad, burla o prejuicio contra personas gays o lesbianas. |
+| 13 | `institutional_distrust` | Desconfianza generalizada hacia Estado, medios, academia o elecciones, sin afirmación conspirativa explícita. |
+| 14 | `violence_glorification` | Elogio, celebración o incitación a la violencia (no mera discusión o noticia). |
+| 15 | `accelerationism` | Deseo de acelerar el colapso, el conflicto o la desestabilización. |
+| 16 | `meta_topic` | Meta-discusión del tablero, moderación, raids, cultura online. |
+| 17 | `none` | Ningún marco reconocible. |
+| 18 | `unclear` | Contexto insuficiente, truncamiento o ambigüedad genuina. |
 
 ### Criterios por marco
 
@@ -60,6 +65,16 @@ para fijar el criterio.
 - **Positivo:** “Las naciones solo funcionan si mantienen su composición
   étnica.”
 - **Negativo:** “Prefiero vivir en mi país.”
+
+#### `racism`
+
+- **Incluye:** superioridad o inferioridad racial, slurs, segregación, jerarquía
+  racial, atribución de rasgos o crímenes a una raza, supremacismo blanco.
+- **Excluye:** prejuicio contra un grupo cubierto por una etiqueta más específica
+  (`antisemitism`, `islamophobia`, `rusophobia`, `sinophobia`); crítica a
+  políticas migratorias sin jerarquía racial.
+- **Positivo:** “Las razas no deberían mezclarse.”
+- **Negativo:** “La ley de inmigración cambió los requisitos.”
 
 #### `antisemitism`
 
@@ -96,6 +111,56 @@ para fijar el criterio.
 - **Positivo:** “Los chinos están por todos lados comprando todo, nos invaden.”
 - **Negativo:** “China anunció nuevas tarifas.”
 
+#### `eugenics`
+
+- **Incluye:** defensa o aprobación de cría selectiva, esterilización,
+  jerarquía genética, “gene pool”, disgenia, mejorar la “raza” o la población
+  mediante selección reproductiva.
+- **Excluye:** genética médica o discusión histórica neutral sin aprobación;
+  el simple uso de “evolución” sin programa reproductivo.
+- **Positivo:** “Hay que esterilizar a los criminales para mejorar el acervo
+  genético.”
+- **Negativo:** “El documental describe las políticas eugenésicas del siglo XX.”
+
+#### `ableism`
+
+- **Incluye:** insultos o burlas por discapacidad, enfermedad mental o
+  neurodivergencia; exclusión, inferioridad o eliminación de personas
+  discapacitadas; uso de “retrasado” como insulto.
+- **Excluye:** mención neutral de una discapacidad; crítica a una persona sin
+  apuntar a su discapacidad.
+- **Positivo:** “Los autistas no deberían tener hijos.”
+- **Negativo:** “Tiene una discapacidad y necesita apoyo.”
+
+#### `gender`
+
+- **Incluye:** antifeminismo, roles de género, masculinidad, debates generales
+  sobre género y sexualidad no centrados en personas trans o gays/lesbianas.
+- **Excluye:** contenido cubierto por `transphobia` o `homophobia` (usar esas
+  etiquetas); menciones incidentales de género sin postura política.
+- **Positivo:** “Las mujeres no deberían votar.”
+- **Negativo:** “La candidata presentó su programa.”
+
+#### `transphobia`
+
+- **Incluye:** negación de la identidad trans, misgendering hostil, slurs,
+  exclusión, deshumanización, “son hombres disfrazados”, oposición a derechos
+  trans basada en esa hostilidad.
+- **Excluye:** discusión neutral sobre sexo biológico sin dirigirse a personas
+  trans; crítica a una política concreta sin negar la identidad.
+- **Positivo:** “Los trans no son lo que dicen ser, son hombres disfrazados.”
+- **Negativo:** “La ley de deportes discute categorías por sexo.”
+
+#### `homophobia`
+
+- **Incluye:** hostilidad o slurs contra gays y lesbianas, “degeneración”,
+  oposición a derechos basada en esa hostilidad, sodomía como crimen o
+  enfermedad.
+- **Excluye:** debate neutral sobre derechos sin hostilidad; crítica a una
+  persona sin apuntar a su orientación.
+- **Positivo:** “Los homosexuales son una degeneración y no deberían adoptar.”
+- **Negativo:** “El parlamento debatió el matrimonio igualitario.”
+
 #### `institutional_distrust`
 
 - **Incluye:** desconfianza generalizada hacia elecciones, prensa, academia,
@@ -104,14 +169,6 @@ para fijar el criterio.
   `conspiracy`, pueden coexistir si ambos son centrales).
 - **Positivo:** “Ninguna elección en este país es legítima.”
 - **Negativo:** “Esa elección tuvo irregularidades documentadas.”
-
-#### `gender`
-
-- **Incluye:** antifeminismo, roles de género, masculinidad, hostilidad contra
-  personas LGBTQ+, debates sobre sexualidad.
-- **Excluye:** menciones incidentales de género sin postura política.
-- **Positivo:** “Las mujeres no deberían votar.”
-- **Negativo:** “La candidata presentó su programa.”
 
 #### `violence_glorification`
 
@@ -152,22 +209,34 @@ para fijar el criterio.
 
 ### Reglas de solapamiento
 
-1. Las etiquetas específicas (`antisemitism`, `islamophobia`, `rusophobia`,
-   `sinophobia`) **reemplazan** a `ethnonationalism`. No se anotan las dos por
-   el mismo contenido.
-2. `ethnonationalism` se reserva para encuadres étnicos/nacionales genéricos
-   sin grupo nombrado.
-3. `conspiracy` exige un plan explícito. `institutional_distrust` es la
+1. Las etiquetas de prejuicio con blanco específico (`antisemitism`,
+   `islamophobia`, `rusophobia`, `sinophobia`, `transphobia`, `homophobia`,
+   `ableism`) **reemplazan** a las genéricas `ethnonationalism`, `racism` y
+   `gender` cuando la etiqueta específica cubre el mismo contenido. Si el post
+   contiene prejuicios distintos (por ejemplo, racismo y ableismo), se anotan
+   ambos.
+2. `racism` se usa para prejuicio racial/étnico sin una etiqueta más específica;
+   reemplaza a `ethnonationalism` cuando el eje es racial.
+3. `ethnonationalism` se reserva para encuadres nacionales/étnicos genéricos
+   sin grupo nombrado ni eje racial específico.
+4. `eugenics` describe una ideología de mejora genética y **puede coexistir**
+   con `racism`, `ableism` o `ethnonationalism` si ambos son centrales.
+5. `ableism` **puede coexistir** con `eugenics` (por ejemplo, esterilización de
+   personas discapacitadas).
+6. `transphobia` y `homophobia` reemplazan a `gender` cuando el post se dirige
+   a personas trans o gays/lesbianas. `gender` queda para antifeminismo, roles
+   de género, masculinidad y temas LGBTQ+ generales.
+7. `conspiracy` exige un plan explícito. `institutional_distrust` es la
    etiqueta más amplia y no conspirativa. Pueden coexistir solo si ambos son
    centrales.
-4. `violence_glorification` describe la postura frente a la violencia;
+8. `violence_glorification` describe la postura frente a la violencia;
    `accelerationism` describe el deseo de acelerar el colapso. Pueden coexistir.
-5. `none` y `unclear` son excluyentes con cualquier otro marco y entre sí.
-6. Si hay duda entre `none` y un marco: si el marco está claramente presente,
-   anotarlo; si no, `none`. Si no se puede decidir por falta de contexto,
-   `unclear`.
-7. No se anota ideología inferida. Se anota lo que el post dice o implica de
-   forma directa.
+9. `none` y `unclear` son excluyentes con cualquier otro marco y entre sí.
+10. Si hay duda entre `none` y un marco: si el marco está claramente presente,
+    anotarlo; si no, `none`. Si no se puede decidir por falta de contexto,
+    `unclear`.
+11. No se anota ideología inferida. Se anota lo que el post dice o implica de
+    forma directa.
 
 ## Toxicidad (ordinal 0–3)
 
@@ -201,7 +270,8 @@ keklab annotate sample \
 
 - **Aleatorio:** estima prevalencia. Estratificado por mes.
 - **Dirigido:** enriquece marcos raros (`rusophobia`, `sinophobia`,
-  `accelerationism`) para entrenamiento/calibración. No sirve para prevalencia.
+  `accelerationism`, `racism`, `eugenics`, `ableism`, `transphobia`,
+  `homophobia`) para entrenamiento/calibración. No sirve para prevalencia.
 - Se pueden conservar algunos posts vacíos o solo-imagen con
   `--include-empty N` para probar `none`.
 - Para ROTLK se lee el dump comprimido en sitio, sin copiarlo ni extraerlo:
