@@ -1065,18 +1065,29 @@ def _thread_sample(
     thread: dict[str, Any],
     target_post_id: str,
     stratum: dict[str, Any],
+    *,
+    require_text: bool = True,
 ) -> SamplePost | None:
-    """Canonicalize one thread and build its annotation sample."""
+    """Canonicalize one thread and build its annotation sample.
+
+    `require_text` drops posts that are only quotes or markup once cleaned;
+    they are not useful for frame annotation. Empty/media-only samples pass
+    `require_text=False` when requested explicitly.
+    """
     posts = thread.get("posts") or []
     if not posts:
         return None
 
     try:
         rows = canonicalize_fourplebs_thread({"posts": posts}, source="kek")
-        return build_sample(rows, target_post_id, stratum)
+        sample = build_sample(rows, target_post_id, stratum)
     except Exception as exc:  # one bad thread must not abort a 114 GB pass
         log.debug("Could not build ROTLK sample for %s: %s", target_post_id, exc)
         return None
+
+    if require_text and not sample.text_clean.strip():
+        return None
+    return sample
 
 
 def sample_rotlk_stream(
@@ -1107,6 +1118,11 @@ def sample_rotlk_stream(
     rng = random.Random(seed)
     frames = list(TARGETED_SEARCH_TERMS)
     max_per_frame = max(1, math.ceil(targeted_count / max(len(frames), 1)))
+    frame_base, frame_remainder = divmod(targeted_count, max(len(frames), 1))
+    frame_quota = {
+        frame: frame_base + (1 if index < frame_remainder else 0)
+        for index, frame in enumerate(frames)
+    }
 
     random_res: dict[str, _Reservoir] = defaultdict(
         lambda: _Reservoir(random_count)
@@ -1164,7 +1180,12 @@ def sample_rotlk_stream(
                     stratum = {"reason": "random_empty", "month": month}
                     empty_res[month].offer(
                         lambda thread=thread, post_id=target_id, st=stratum: (
-                            _thread_sample(thread, post_id, st)
+                            _thread_sample(
+                                thread,
+                                post_id,
+                                st,
+                                require_text=False,
+                            )
                         ),
                         rng,
                     )
@@ -1310,7 +1331,10 @@ def sample_rotlk_stream(
             return None
 
         for frame in frames:
-            while per_frame[frame] < max_per_frame and targeted_added < targeted_count:
+            while (
+                per_frame[frame] < frame_quota[frame]
+                and targeted_added < targeted_count
+            ):
                 sample = take(frame)
                 if sample is None:
                     break

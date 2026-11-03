@@ -309,3 +309,24 @@ def test_stream_excludes_posts_before_cutoff_day(tmp_path):
     # the cutoff month but before the cutoff day.
     assert "10" not in {sample.post_id for sample in samples}
     assert {sample.post_id for sample in samples} == {"11", "12"}
+
+
+def test_stream_random_skips_quote_only_posts(tmp_path):
+    quote_only = (
+        '<a href="#p1" class="quotelink">&gt;&gt;1</a>'
+    )
+    threads = [_thread(20, _epoch(2021, 1, 10), quote_only)]
+    path = _write_tar_zst(
+        tmp_path / "threads.tar.zst",
+        {"threads.ndjson": _ndjson(threads)},
+    )
+
+    samples = sample_rotlk_stream(
+        path,
+        random_count=1,
+        targeted_count=0,
+        months=1,
+        seed=7,
+    )
+
+    assert samples == []
