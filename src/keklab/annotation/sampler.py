@@ -1040,6 +1040,27 @@ def _match_frames(text: str) -> dict[str, str]:
     return matches
 
 
+def _windowed(
+    samples: Iterable[SamplePost],
+    cutoff: datetime,
+) -> list[SamplePost]:
+    """Filter to samples strictly inside the [cutoff, ...] window.
+
+    Month keys are too coarse for the edge of the window: a post from the
+    cutoff month can still predate the cutoff day. Compare real timestamps.
+    """
+    kept: list[SamplePost] = []
+    for sample in samples:
+        timestamp = sample.timestamp_utc
+        if timestamp is None:
+            continue
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        if timestamp >= cutoff:
+            kept.append(sample)
+    return kept
+
+
 def _thread_sample(
     thread: dict[str, Any],
     target_post_id: str,
@@ -1207,7 +1228,12 @@ def sample_rotlk_stream(
         return []
 
     cutoff = _cutoff(months, max_ts)
-    cutoff_month = cutoff.strftime("%Y-%m")
+    log.info(
+        "ROTLK window: %s -> %s (%d months)",
+        cutoff.isoformat(),
+        max_ts.isoformat(),
+        months,
+    )
 
     samples: list[SamplePost] = []
     used_posts: set[str] = set()
@@ -1216,10 +1242,13 @@ def sample_rotlk_stream(
     # Random sample: preserve the per-month allocation used by the parquet
     # sampler, but read each month's reservoir from the single pass.
     if random_count > 0:
+        eligible = {
+            month: _windowed(reservoir.items, cutoff)
+            for month, reservoir in random_res.items()
+            if month != "unknown"
+        }
         months_present = sorted(
-            month
-            for month in random_res
-            if month != "unknown" and month >= cutoff_month
+            month for month, items in eligible.items() if items
         )
         allocation = _allocate_counts(random_count, months_present, rng)
         for month in sorted(allocation):
@@ -1227,7 +1256,7 @@ def sample_rotlk_stream(
             if need <= 0:
                 continue
 
-            candidates = list(random_res[month].items)
+            candidates = list(eligible[month])
             rng.shuffle(candidates)
             picked = 0
             for sample in candidates:
@@ -1254,13 +1283,15 @@ def sample_rotlk_stream(
         pools: dict[str, list[SamplePost]] = {}
         for frame in frames:
             by_month = target_res[frame]
-            candidates = [
-                sample
-                for month in sorted(
-                    m for m in by_month if m != "unknown" and m >= cutoff_month
-                )
-                for sample in by_month[month].items
-            ]
+            candidates = _windowed(
+                (
+                    sample
+                    for month in sorted(by_month)
+                    if month != "unknown"
+                    for sample in by_month[month].items
+                ),
+                cutoff,
+            )
             rng.shuffle(candidates)
             pools[frame] = candidates
 
@@ -1309,12 +1340,15 @@ def sample_rotlk_stream(
     # Deliberately keep a few empty/media-only posts if requested.
     if include_empty > 0:
         empty_added = 0
-        candidates = [
-            sample
-            for month in sorted(empty_res)
-            if month != "unknown" and month >= cutoff_month
-            for sample in empty_res[month].items
-        ]
+        candidates = _windowed(
+            (
+                sample
+                for month in sorted(empty_res)
+                if month != "unknown"
+                for sample in empty_res[month].items
+            ),
+            cutoff,
+        )
         rng.shuffle(candidates)
         for sample in candidates:
             if empty_added >= include_empty:

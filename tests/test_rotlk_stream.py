@@ -9,7 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from keklab.annotation.sampler import sample_rotlk_stream
+from keklab.annotation.sampler import _windowed, sample_rotlk_stream
+from keklab.annotation.schema import SamplePost
 from keklab.common.io import count_ndjson_lines, iter_ndjson
 
 
@@ -258,3 +259,53 @@ def test_stream_reads_plain_ndjson(tmp_path):
 def test_stream_missing_file(tmp_path):
     with pytest.raises(FileNotFoundError):
         sample_rotlk_stream(tmp_path / "missing.tar.zst")
+
+
+def test_windowed_compares_exact_timestamp():
+    cutoff = datetime(2021, 5, 16, tzinfo=timezone.utc)
+
+    def sample(post_id: str, timestamp: datetime | None) -> SamplePost:
+        return SamplePost(
+            post_id=post_id,
+            thread_id=post_id,
+            source="kek",
+            timestamp_utc=timestamp,
+            content_hash=f"hash-{post_id}",
+        )
+
+    samples = [
+        sample("early", datetime(2021, 5, 1, tzinfo=timezone.utc)),
+        sample("boundary", cutoff),
+        sample("late", datetime(2021, 5, 20, tzinfo=timezone.utc)),
+        sample("missing", None),
+    ]
+
+    assert [item.post_id for item in _windowed(samples, cutoff)] == [
+        "boundary",
+        "late",
+    ]
+
+
+def test_stream_excludes_posts_before_cutoff_day(tmp_path):
+    threads = [
+        _thread(10, _epoch(2021, 5, 1), "too early for the window"),
+        _thread(11, _epoch(2021, 5, 20), "late enough in may"),
+        _thread(12, _epoch(2021, 6, 15), "the newest post"),
+    ]
+    path = _write_tar_zst(
+        tmp_path / "threads.tar.zst",
+        {"threads.ndjson": _ndjson(threads)},
+    )
+
+    samples = sample_rotlk_stream(
+        path,
+        random_count=5,
+        targeted_count=0,
+        months=1,
+        seed=7,
+    )
+
+    # max_ts is 2021-06-15, so the cutoff is 2021-05-16: the May 1 post is in
+    # the cutoff month but before the cutoff day.
+    assert "10" not in {sample.post_id for sample in samples}
+    assert {sample.post_id for sample in samples} == {"11", "12"}
