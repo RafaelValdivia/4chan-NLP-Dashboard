@@ -131,7 +131,8 @@ dedupe, timestamps nulos, configuración, registro y CLI).
 
 - **4plebs:** ventana de 24 meses; 20 posts aleatorios estratificados por mes y
   10 dirigidos a marcos raros (`rusophobia`, `sinophobia`, `accelerationism`,
-  `racism`, `eugenics`, `ableism`, `transphobia`, `homophobia`) mediante
+  `racism`, `eugenics`, `ableism`, `antifeminism`, `transphobia`,
+  `homophobia`) mediante
   búsqueda. Se guarda el OP y los posts citados como contexto. El cliente usa
   `curl` cuando está disponible porque el archivo rechaza la huella TLS de
   `httpx`/`urllib`; mantiene caché en disco y límite de tasa.
@@ -205,3 +206,87 @@ dirigidos), sin posts fuera de ventana ni textos limpios vacíos. Los aleatorios
 cubren 20 meses distintos; los dirigidos quedaron 4 `rusophobia`, 3
 `sinophobia` y 3 `accelerationism`.
 
+
+## Actualización: vocabulario y presupuesto de etiquetas (03-11-2026)
+
+`gender` se reemplazó por `antifeminism` en el índice 10. El cambio estrecha la
+etiqueta: antes cubría roles de género, masculinidad y temas LGBTQ+ generales;
+ahora se limita a hostilidad u oposición al feminismo o a los derechos de las
+mujeres. `transphobia` y `homophobia` dejan de ser sustitutos de `gender` y
+pasan a ser ejes independientes que pueden coexistir con `antifeminism`. Se
+agregaron términos dirigidos para el marco nuevo (`feminism`, `feminist`,
+`femoid`, `suffragette`, `misandry`, `women's rights`, `female privilege`).
+
+### Chequeo de infradeterminación
+
+Con 18 marcos, 16 de ellos no exclusivos más `none` y `unclear`, el espacio de
+etiquetas posibles es:
+
+```
+2^16 + 2 = 65,538 conjuntos de marcos
+```
+
+El piloto tiene 30 posts, así que como máximo observa 30 de esos conjuntos. Eso
+no invalida la anotación, pero sí limita lo que se puede aprender de ella. Para
+un marco con prevalencia `p`, la probabilidad de no ver ningún positivo en 30
+posts y el número de posts necesario para esperar 10 positivos son:
+
+| Prevalencia | Positivos esperados (n=30) | P(0 positivos) | P(≥5 positivos) | n para 10 positivos |
+|---:|---:|---:|---:|---:|
+| 1% | 0.3 | 0.740 | 0.000 | 1,000 |
+| 2% | 0.6 | 0.545 | 0.000 | 500 |
+| 5% | 1.5 | 0.215 | 0.016 | 200 |
+| 10% | 3.0 | 0.042 | 0.175 | 100 |
+| 15% | 4.5 | 0.008 | 0.476 | 67 |
+| 20% | 6.0 | 0.001 | 0.745 | 50 |
+
+El self test-retest del 20% son **6 posts**. Un kappa por marco calculado sobre
+6 decisiones no es estimable para marcos raros: con 0 o 1 positivos, el valor
+depende de casos degenerados. Además, 18 cabezas binarias sobre un encoder de
+768 dimensiones implican ~13,800 parámetros de salida, entrenados con 30
+ejemplos.
+
+En el piloto actual, la búsqueda de términos semilla encuentra:
+
+| Marco | Posts con término semilla (n=30) |
+|---|---:|
+| `racism` | 2 |
+| `ableism` | 1 |
+| `eugenics` | 0 |
+| `transphobia` | 0 |
+| `homophobia` | 0 |
+| `antifeminism` | 0 |
+
+Esto es solo un proxy de candidatos, no prevalencia anotada, pero confirma que
+los marcos nuevos tendrán muy pocos positivos en este piloto.
+
+### Recomendación
+
+Separar la **taxonomía de anotación** (fina, 18 marcos) de la **taxonomía de
+modelado** (gruesa). La anotación fina conserva el detalle analítico; el modelo
+agrupa marcos que comparten señal y que el tamaño de muestra no permite
+distinguir. Una propuesta de 8 cabezas:
+
+| Cabeza de modelado | Marcos finos |
+|---|---|
+| `conspiracy` | `conspiracy` |
+| `ethnoracial_prejudice` | `ethnonationalism`, `racism`, `antisemitism`, `islamophobia`, `rusophobia`, `sinophobia` |
+| `gender_sexuality_prejudice` | `antifeminism`, `transphobia`, `homophobia` |
+| `eugenics_ableism` | `eugenics`, `ableism` |
+| `institutional_distrust` | `institutional_distrust` |
+| `violence_acceleration` | `violence_glorification`, `accelerationism` |
+| `meta_topic` | `meta_topic` |
+| `no_frame` | `none`, `unclear` |
+
+Reglas asociadas:
+
+1. Un marco fino solo entra a E0/E2 si tiene **≥30 positivos en train** y **≥5
+   en test**; si no, se reporta solo de forma descriptiva.
+2. La muestra aleatoria estima prevalencia; la dirigida solo entrena/calibra.
+3. Si se necesitan marcos finos, el piloto debe crecer a 100–150 posts
+   aleatorios y la muestra dirigida a 200–300 candidatos por marco raro.
+4. La alternativa jerárquica es una cabeza gruesa más una cabeza hija solo para
+   los marcos que superen el umbral de soporte.
+
+Esta separación evita que 18 etiquetas con 30 ejemplos produzcan un modelo
+infradeterminado sin renunciar al codebook fino.

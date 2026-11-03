@@ -31,7 +31,7 @@ centrales para el post.
 | 7 | `sinophobia` | Hostilidad o prejuicio contra chinos o China. |
 | 8 | `eugenics` | Defensa o aprobación de cría selectiva, jerarquía genética, esterilización o “mejorar” el acervo genético. |
 | 9 | `ableism` | Prejuicio, burla o discriminación contra personas con discapacidad o enfermedad mental. |
-| 10 | `gender` | Política de género: antifeminismo, roles de género, masculinidad, temas LGBTQ+ generales. |
+| 10 | `antifeminism` | Hostilidad u oposición al feminismo, los derechos de las mujeres o la igualdad de género. |
 | 11 | `transphobia` | Hostilidad, burla o prejuicio contra personas trans o negación de su identidad. |
 | 12 | `homophobia` | Hostilidad, burla o prejuicio contra personas gays o lesbianas. |
 | 13 | `institutional_distrust` | Desconfianza generalizada hacia Estado, medios, academia o elecciones, sin afirmación conspirativa explícita. |
@@ -132,13 +132,18 @@ para fijar el criterio.
 - **Positivo:** “Los autistas no deberían tener hijos.”
 - **Negativo:** “Tiene una discapacidad y necesita apoyo.”
 
-#### `gender`
+#### `antifeminism`
 
-- **Incluye:** antifeminismo, roles de género, masculinidad, debates generales
-  sobre género y sexualidad no centrados en personas trans o gays/lesbianas.
-- **Excluye:** contenido cubierto por `transphobia` o `homophobia` (usar esas
-  etiquetas); menciones incidentales de género sin postura política.
-- **Positivo:** “Las mujeres no deberían votar.”
+- **Incluye:** hostilidad u oposición al feminismo o a los derechos de las
+  mujeres; afirmaciones de inferioridad femenina, oposición al sufragio, al
+  trabajo o a la igualdad; slurs como “femoid”; teorías de privilegio femenino
+  o misandria usadas como ataque.
+- **Excluye:** discusión neutral sobre roles de género o una política concreta
+  sin hostilidad; crítica a una feminista por sus actos sin apuntar al
+  feminismo. `transphobia` y `homophobia` son ejes distintos y pueden
+  coexistir si ambos son centrales.
+- **Positivo:** “Las mujeres no deberían votar; el feminismo arruinó la
+  sociedad.”
 - **Negativo:** “La candidata presentó su programa.”
 
 #### `transphobia`
@@ -211,8 +216,8 @@ para fijar el criterio.
 
 1. Las etiquetas de prejuicio con blanco específico (`antisemitism`,
    `islamophobia`, `rusophobia`, `sinophobia`, `transphobia`, `homophobia`,
-   `ableism`) **reemplazan** a las genéricas `ethnonationalism`, `racism` y
-   `gender` cuando la etiqueta específica cubre el mismo contenido. Si el post
+   `ableism`) **reemplazan** a las genéricas `ethnonationalism` y `racism`
+   cuando la etiqueta específica cubre el mismo contenido. Si el post
    contiene prejuicios distintos (por ejemplo, racismo y ableismo), se anotan
    ambos.
 2. `racism` se usa para prejuicio racial/étnico sin una etiqueta más específica;
@@ -223,9 +228,9 @@ para fijar el criterio.
    con `racism`, `ableism` o `ethnonationalism` si ambos son centrales.
 5. `ableism` **puede coexistir** con `eugenics` (por ejemplo, esterilización de
    personas discapacitadas).
-6. `transphobia` y `homophobia` reemplazan a `gender` cuando el post se dirige
-   a personas trans o gays/lesbianas. `gender` queda para antifeminismo, roles
-   de género, masculinidad y temas LGBTQ+ generales.
+6. `transphobia` y `homophobia` son ejes independientes de `antifeminism`. Un
+   post puede ser ambos si ataca el feminismo y a personas trans o gays; no se
+   usa `antifeminism` para contenido exclusivamente trans/homofóbico.
 7. `conspiracy` exige un plan explícito. `institutional_distrust` es la
    etiqueta más amplia y no conspirativa. Pueden coexistir solo si ambos son
    centrales.
