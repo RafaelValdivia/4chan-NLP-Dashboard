@@ -283,10 +283,51 @@ Reglas asociadas:
 1. Un marco fino solo entra a E0/E2 si tiene **≥30 positivos en train** y **≥5
    en test**; si no, se reporta solo de forma descriptiva.
 2. La muestra aleatoria estima prevalencia; la dirigida solo entrena/calibra.
-3. Si se necesitan marcos finos, el piloto debe crecer a 100–150 posts
-   aleatorios y la muestra dirigida a 200–300 candidatos por marco raro.
+3. Si se necesitan marcos finos, el piloto debe crecer según la tabla de tamaño
+   muestral de abajo; para el esquema grueso alcanza ~1,000 posts aleatorios,
+   para el fino hacen falta 2,500–5,000.
 4. La alternativa jerárquica es una cabeza gruesa más una cabeza hija solo para
    los marcos que superen el umbral de soporte.
 
 Esta separación evita que 18 etiquetas con 30 ejemplos produzcan un modelo
 infradeterminado sin renunciar al codebook fino.
+
+### Cuántos posts faltan
+
+No hay un número único: depende de la prevalencia `p` del marco más raro que se
+quiera modelar y del mínimo `K` de positivos por marco. La relación es
+`n = K / p`; los adicionales sobre los 30 actuales son `n - 30`.
+
+| `p` del marco más raro | K=10 (evaluar) | K=30 | K=50 (entrenar) | K=100 |
+|---:|---:|---:|---:|---:|
+| 1% | 1,000 (970) | 3,000 (2,970) | 5,000 (4,970) | 10,000 (9,970) |
+| 2% | 500 (470) | 1,500 (1,470) | 2,500 (2,470) | 5,000 (4,970) |
+| 5% | 200 (170) | 600 (570) | 1,000 (970) | 2,000 (1,970) |
+| 10% | 100 (70) | 300 (270) | 500 (470) | 1,000 (970) |
+| 20% | 50 (20) | 150 (120) | 250 (220) | 500 (470) |
+
+Cada celda es `n total (posts adicionales sobre 30)`.
+
+Para el **esquema grueso de 8 cabezas**, si la cabeza más rara tiene ~5–10% de
+prevalencia, el objetivo es **1,000 posts aleatorios** (970 más): da ~50
+positivos a 5% y ~100 a 10%. Con 200 posts (170 más) solo se puede estimar
+prevalencia de forma descriptiva, no entrenar.
+
+Para el **esquema fino de 18 marcos**, si el marco más raro tiene ~1–2%, el
+objetivo de 50 positivos exige **2,500–5,000 posts aleatorios** (2,470–4,970
+más). Eso no es viable con anotación humana únicamente; la alternativa es
+muestreo dirigido por marco raro o quedarse con el esquema grueso.
+
+El número exacto se debe recalcular después de una primera tanda. Procedimiento:
+
+1. Anotar 200 posts aleatorios (170 más).
+2. Calcular `p_hat` por marco o cabeza.
+3. Reemplazar `p` por `p_hat` en `n = K / p_hat`.
+4. Seguir en tandas de 100–200 hasta que cada marco modelado llegue a `K`
+   positivos; si un marco no llega a 5 positivos tras 1,000 posts, sacarlo del
+   modelo y reportarlo solo descriptivamente.
+
+Para el acuerdo, el test-retest plano del 20% no alcanza: con 1,000 posts son
+200 pares y una cabeza del 5% tendría ~10 positivos. Conviene un **retest
+estratificado**: incluir todos los positivos de marcos raros más una muestra
+aleatoria de negativos, hasta ≥20 pares por marco modelado.
