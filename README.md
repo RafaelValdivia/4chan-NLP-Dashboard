@@ -61,7 +61,21 @@ keklab annotate stats --input data/annotations/pilot_r1.jsonl
 keklab annotate export --input data/annotations/pilot_r1.jsonl --format csv
 keklab annotate agreement --a data/annotations/pilot_r1.jsonl \
   --b data/annotations/pilot_r2.jsonl
+
+# herramientas del piloto: fusión, auditoría, split y retest
+keklab annotate merge --input a.jsonl b.jsonl --out merged.jsonl \
+  --expect-total 200 --expect-random 190 --expect-targeted 10
+keklab annotate audit --input merged.jsonl \
+  --start 2017-11-11T10:15:36Z --end 2019-11-01T10:15:36Z
+keklab annotate split --input merged.jsonl --out splits.jsonl --seed 13
+keklab annotate retest --input merged.jsonl --out retest.jsonl \
+  --fraction 0.2 --seed 13
 ```
+
+La anotación fina usa 18 marcos; el modelado los agrupa en 8 cabezas
+(`src/keklab/annotation/taxonomy.py`). El CSV exporta ambos niveles
+(`frame_labels`/`coarse_labels` y sus one-hot). El protocolo de evaluación
+pre-registrado está en `docs/evaluation_protocol.md`.
 
 La anotación es interactiva por terminal. Los marcos son binarios multi-label;
 la toxicidad es ordinal `0–3`. El piloto usa self test-retest sobre ~20% de la
@@ -82,5 +96,7 @@ El sampler de ROTLK se validó contra el dump real
 con `zstd` + `tarfile`: no se extrae ni se copia al repositorio. Los tests usan
 fixtures sintéticos que reproducen el contrato y también construyen archivos
 `.tar.zst` pequeños para probar el streaming. El piloto real quedó en
-`data/samples/rotlk_pilot.jsonl`: 30 samples (20 aleatorios + 10 dirigidos) en
-la ventana `2017-11-11 → 2019-11-01`.
+`data/samples/rotlk_pilot_200.jsonl`: 200 posts y 200 hilos únicos (190
+aleatorios + 10 dirigidos) en la ventana `2017-11-11 → 2019-11-01`, con 25
+meses calendario cubiertos. El archivo de 30 se conserva como procedencia y el
+split por hilo está en `data/splits/rotlk_pilot_200_threads.jsonl`.

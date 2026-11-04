@@ -419,3 +419,75 @@ Chequeos de aceptación, todos pasados:
 Los 10 dirigidos se excluyen de las estimaciones de prevalencia. La siguiente
 acción es anotar los 200 y calcular `p_hat` por marco para fijar la próxima
 tanda.
+
+## Actualización: herramientas sin anotaciones (04-11-2026)
+
+Con la muestra de 200 cerrada y la anotación todavía pendiente, se implementó
+todo lo que no depende del oro: reproducibilidad del muestreo, taxonomía gruesa,
+partición pre-registrada, auditoría y selección del retest.
+
+### Reproducibilidad
+
+La fusión que produjo `rotlk_pilot_200.jsonl` ya no es un script inline. Ahora
+existe `keklab annotate merge`, que:
+
+- valida cada fila con `SamplePost`;
+- conserva la primera aparición y deduplica por `post_id` y `thread_id`;
+- reporta filas leídas, duplicados, razones, fuentes, meses y rango temporal;
+- permite exigir conteos con `--expect-total`, `--expect-random` y
+  `--expect-targeted`.
+
+Regenerar el archivo desde las dos fuentes produce exactamente las mismas 200
+filas, en el mismo orden:
+
+```bash
+keklab annotate merge \
+  --input data/samples/rotlk_pilot.jsonl data/samples/rotlk_pilot_extra.jsonl \
+  --out /tmp/rotlk_pilot_200_remerged.jsonl \
+  --expect-total 200 --expect-random 190 --expect-targeted 10
+```
+
+### Auditoría
+
+`keklab annotate audit` describe cualquier archivo de candidatos sin necesidad
+de anotaciones: posts/hilos únicos, duplicados, textos vacíos, OP/reply,
+razones, fuentes, países, meses, rango temporal y longitud de texto. También
+acepta `--start`/`--end` para contar posts fuera de la ventana.
+
+Auditoría del piloto de 200:
+
+| Métrica | Valor |
+|---|---:|
+| Posts / hilos únicos | 200 / 200 |
+| Aleatorios / dirigidos | 190 / 10 |
+| Posts con `text_clean` vacío | 0 |
+| Posts fuera de ventana | 0 |
+| Meses calendario | 25 |
+| OP | 44 |
+| Longitud mediana (`text_clean`) | 76.5 caracteres |
+| Países con más posts | US 104, CA 15, GB 9 |
+
+### Taxonomía gruesa
+
+`src/keklab/annotation/taxonomy.py` define las 8 cabezas y el mapeo desde los
+18 marcos finos. El import valida que el vocabulario fino y el mapeo no se
+desincronicen. `annotate export` agrega `coarse_labels` y columnas one-hot
+`coarse_*`; `annotate stats` reporta `coarse_counts`.
+
+### Split y retest pre-registrados
+
+- `keklab annotate split` asigna train/dev/test **por hilo** (60/20/20) con
+  semilla 13. El manifiesto del piloto quedó en
+  `data/splits/rotlk_pilot_200_threads.jsonl`: 120/40/40.
+- `keklab annotate retest` selecciona el 20% para la ronda 2 de forma
+  determinista. Sobre los 200 selecciona 40 (39 aleatorios + 1 dirigido); el
+  dirigido no se usa para prevalencia.
+
+El protocolo completo, con métricas, reglas de soporte y definición de E0/E2,
+está en `docs/evaluation_protocol.md`.
+
+### Tests
+
+La suite pasó de 87 a **109 pruebas**. Los tests nuevos cubren taxonomía,
+fusión/deduplicación, retest, split por hilo, auditoría y los cuatro comandos
+nuevos de la CLI.

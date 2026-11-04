@@ -243,6 +243,26 @@ para fijar el criterio.
 11. No se anota ideología inferida. Se anota lo que el post dice o implica de
     forma directa.
 
+### Taxonomía de modelado
+
+La anotación usa los 18 marcos finos, pero el modelo agrupa en 8 cabezas. El
+mapeo canónico está en `src/keklab/annotation/taxonomy.py`:
+
+| Cabeza | Marcos finos |
+|---|---|
+| `conspiracy` | `conspiracy` |
+| `ethnoracial_prejudice` | `ethnonationalism`, `racism`, `antisemitism`, `islamophobia`, `rusophobia`, `sinophobia` |
+| `gender_sexuality_prejudice` | `antifeminism`, `transphobia`, `homophobia` |
+| `eugenics_ableism` | `eugenics`, `ableism` |
+| `institutional_distrust` | `institutional_distrust` |
+| `violence_acceleration` | `violence_glorification`, `accelerationism` |
+| `meta_topic` | `meta_topic` |
+| `no_frame` | `none`, `unclear` |
+
+Un post puede activar varias cabezas. La exportación CSV agrega
+`coarse_labels` y una columna one-hot `coarse_<cabeza>` por cada una. El
+protocolo de evaluación está en `docs/evaluation_protocol.md`.
+
 ## Toxicidad (ordinal 0–3)
 
 | Nivel | Definición |
