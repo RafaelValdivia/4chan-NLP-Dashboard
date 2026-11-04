@@ -155,9 +155,13 @@ def test_export_csv_has_base_and_one_hot_columns(tmp_path):
     row = next(reader)
     assert row["post_id"] == "1"
     assert row["frame_labels"] == "conspiracy|antifeminism"
+    assert row["coarse_labels"] == "conspiracy|gender_sexuality_prejudice"
     assert row["conspiracy"] == "1"
     assert row["antifeminism"] == "1"
     assert row["antisemitism"] == "0"
+    assert row["coarse_conspiracy"] == "1"
+    assert row["coarse_gender_sexuality_prejudice"] == "1"
+    assert row["coarse_no_frame"] == "0"
     assert row["toxicity"] == "2"
 
     out = tmp_path / "annotations.csv"
@@ -187,6 +191,9 @@ def test_annotation_stats_summarizes_records():
     assert stats["unique_posts"] == 2
     assert stats["frame_counts"]["conspiracy"] == 2
     assert stats["frame_counts"]["none"] == 1
+    assert stats["coarse_counts"]["conspiracy"] == 2
+    assert stats["coarse_counts"]["gender_sexuality_prejudice"] == 1
+    assert stats["coarse_counts"]["no_frame"] == 1
     assert stats["toxicity_counts"]["0"] == 1
     assert stats["toxicity_counts"]["2"] == 1
     assert stats["rounds"] == [1, 2]

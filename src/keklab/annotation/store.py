@@ -20,6 +20,11 @@ from keklab.annotation.schema import (
     annotation_sample_key,
     sample_key,
 )
+from keklab.annotation.taxonomy import (
+    COARSE_HEADS,
+    coarse_counts,
+    collapse_frames,
+)
 from keklab.common.io import iter_ndjson
 from keklab.common.logging import get_logger
 from keklab.formal.schema import Annotation
@@ -185,6 +190,7 @@ CSV_BASE_FIELDS: tuple[str, ...] = (
     "period",
     "content_hash",
     "frame_labels",
+    "coarse_labels",
     "toxicity",
     "annotator",
     "round",
@@ -203,8 +209,12 @@ def _csv_rows(records: Iterable[Annotation]) -> list[dict[str, Any]]:
             field: data.get(field) for field in CSV_BASE_FIELDS
         }
         row["frame_labels"] = "|".join(record.frame_labels)
+        coarse = collapse_frames(record.frame_labels)
+        row["coarse_labels"] = "|".join(coarse)
         for label in FRAME_LABELS:
             row[label] = 1 if label in record.frame_labels else 0
+        for head in COARSE_HEADS:
+            row[f"coarse_{head}"] = 1 if head in coarse else 0
         rows.append(row)
     return rows
 
@@ -218,7 +228,11 @@ def export_csv(
     Returns the CSV text. When `path` is given, also writes it there.
     """
     rows = _csv_rows(records)
-    fieldnames = list(CSV_BASE_FIELDS) + list(FRAME_LABELS)
+    fieldnames = (
+        list(CSV_BASE_FIELDS)
+        + list(FRAME_LABELS)
+        + [f"coarse_{head}" for head in COARSE_HEADS]
+    )
 
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=fieldnames)
@@ -278,6 +292,9 @@ def annotation_stats(records: Iterable[Annotation]) -> dict[str, Any]:
         "frame_counts": {
             label: frame_counts.get(label, 0) for label in FRAME_LABELS
         },
+        "coarse_counts": coarse_counts(
+            record.frame_labels for record in records
+        ),
         "toxicity_counts": {
             str(level): toxicity_counts.get(level, 0) for level in range(4)
         },
