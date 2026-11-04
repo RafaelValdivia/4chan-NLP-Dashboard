@@ -284,8 +284,8 @@ Reglas asociadas:
    en test**; si no, se reporta solo de forma descriptiva.
 2. La muestra aleatoria estima prevalencia; la dirigida solo entrena/calibra.
 3. Si se necesitan marcos finos, el piloto debe crecer según la tabla de tamaño
-   muestral de abajo; para el esquema grueso alcanza ~1,000 posts aleatorios,
-   para el fino hacen falta 2,500–5,000.
+   muestral de abajo; para el esquema grueso, 200 posts pueden alcanzar si la
+   prevalencia es ≥15%, y 1,000 si ronda el 5%.
 4. La alternativa jerárquica es una cabeza gruesa más una cabeza hija solo para
    los marcos que superen el umbral de soporte.
 
@@ -308,10 +308,13 @@ quiera modelar y del mínimo `K` de positivos por marco. La relación es
 
 Cada celda es `n total (posts adicionales sobre 30)`.
 
-Para el **esquema grueso de 8 cabezas**, si la cabeza más rara tiene ~5–10% de
-prevalencia, el objetivo es **1,000 posts aleatorios** (970 más): da ~50
-positivos a 5% y ~100 a 10%. Con 200 posts (170 más) solo se puede estimar
-prevalencia de forma descriptiva, no entrenar.
+Para el **esquema grueso de 8 cabezas**, el objetivo final depende de la
+prevalencia observada. Con 200 posts (170 más) se esperan ~10 positivos a 5%,
+~20 a 10%, ~30 a 15% y ~40 a 20%. Eso alcanza para la primera estimación de
+`p_hat` y, si los marcos están en ~15–20%, para una primera versión del modelo
+grueso; si rondan el 5%, el objetivo sigue siendo **1,000 posts aleatorios**
+(970 más) para ~50 positivos por cabeza. La tanda de 200 es un primer corte
+para reemplazar supuestos por datos, no el tamaño final garantizado.
 
 Para el **esquema fino de 18 marcos**, si el marco más raro tiene ~1–2%, el
 objetivo de 50 positivos exige **2,500–5,000 posts aleatorios** (2,470–4,970
@@ -331,3 +334,88 @@ Para el acuerdo, el test-retest plano del 20% no alcanza: con 1,000 posts son
 200 pares y una cabeza del 5% tendría ~10 positivos. Conviene un **retest
 estratificado**: incluir todos los positivos de marcos raros más una muestra
 aleatoria de negativos, hasta ≥20 pares por marco modelado.
+
+### Decisión: primera tanda de 200 posts (03-11-2026)
+
+Se adopta la **opción A con 200 posts en total**: conservar la muestra ya
+auditada de 30 (20 aleatorios + 10 dirigidos) y agregar **170 aleatorios**
+sobre la misma ventana `2017-11-11T10:15:36Z → 2019-11-01T10:15:36Z`. La mezcla
+final queda en **190 aleatorios + 10 dirigidos = 200 posts y 200 hilos únicos**.
+
+Razones:
+
+- 200 es el primer punto donde `K=10` es alcanzable para un marco con
+  prevalencia ≥5% (`n = K / p = 10 / 0.05 = 200`).
+- Si los marcos están en 15–20%, la tanda produce 30–40 positivos por marco y
+  permite una primera versión del modelo grueso.
+- Conserva los 30 posts ya verificados y evita descartar trabajo de auditoría.
+- Los 10 dirigidos se excluyen de toda estimación de prevalencia; solo
+  entrenan/calibran.
+
+Comando de muestreo (una pasada completa del dump, ~34 minutos):
+
+```bash
+export KEKLAB_ROTLK_DATASET=/run/media/flynnso/Archivos/pol_0616-1119_labeled.tar.zst
+keklab annotate sample --source rotlk --months 24 \
+  --random 170 --targeted 0 --seed 17 \
+  --out data/samples/rotlk_pilot_extra.jsonl
+```
+
+Fusión y verificación:
+
+1. Unir `rotlk_pilot.jsonl` (30) con `rotlk_pilot_extra.jsonl` (170).
+2. Deduplicar por `post_id` y `thread_id`; si hay colisiones, reponer desde el
+   reservorio antes de fijar el tamaño.
+3. Escribir `data/samples/rotlk_pilot_200.jsonl` y conservar el archivo de 30
+   como procedencia.
+4. Aceptar solo si se cumple: 200 posts únicos, 200 hilos únicos, 190
+   aleatorios + 10 dirigidos, 0 timestamps fuera de la ventana, 0 `text_clean`
+   vacíos y cobertura de todos los meses calendario de la ventana (25 buckets,
+   porque noviembre de 2017 y noviembre de 2019 son parciales).
+
+Soporte esperado a n=200 (probabilidad binomial de alcanzar `K` positivos):
+
+| Prevalencia | Positivos esperados | P(≥10) | P(≥20) | P(≥30) |
+|---:|---:|---:|---:|---:|
+| 5% | 10 | 0.545 | 0.003 | 0.000 |
+| 10% | 20 | 0.996 | 0.534 | 0.016 |
+| 15% | 30 | 1.000 | 0.985 | 0.530 |
+| 20% | 40 | 1.000 | 1.000 | 0.972 |
+
+Después de anotar, se calcula `p_hat` por marco y se aplica `n = K / p_hat`
+para decidir la siguiente tanda. Los marcos que queden por debajo de 5
+positivos tras 1,000 posts se reportan solo de forma descriptiva.
+
+### Resultado de la tanda de 200 (03-11-2026)
+
+El muestreo adicional terminó en 1,703.6 s:
+
+```
+3,397,911 hilos / 134,529,233 posts
+170 samples -> data/samples/rotlk_pilot_extra.jsonl
+by reason: {"random": 170}
+```
+
+La fusión no tuvo colisiones: 0 posts y 0 hilos compartidos entre la muestra
+base y la adicional. El archivo final es
+`data/samples/rotlk_pilot_200.jsonl` (262 KB) y el de 30 se conserva como
+procedencia.
+
+Chequeos de aceptación, todos pasados:
+
+| Chequeo | Resultado |
+|---|---:|
+| Posts totales | 200 |
+| Posts únicos | 200 |
+| Hilos únicos | 200 |
+| Aleatorios | 190 |
+| Dirigidos | 10 |
+| `text_clean` vacíos | 0 |
+| Timestamps fuera de ventana | 0 |
+| Meses calendario cubiertos | 25 (6–10 posts cada uno) |
+| Duplicados de `content_hash` | 0 |
+| Duplicados de `text_raw` | 0 |
+
+Los 10 dirigidos se excluyen de las estimaciones de prevalencia. La siguiente
+acción es anotar los 200 y calcular `p_hat` por marco para fijar la próxima
+tanda.
