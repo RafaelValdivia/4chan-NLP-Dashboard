@@ -1,9 +1,10 @@
-# Codebook de anotación — v0
+# Codebook de anotación — v0.1
 
 Este documento fija el contrato de etiquetado humano del proyecto. Se aplica a
 la muestra de 4plebs (período reciente) y al dump de ROTLK (período histórico).
 La versión se congela como `v1` recién después del piloto y del control de
-acuerdo. Mientras tanto, todo lo anotado queda bajo `guideline_version = "v0"`.
+acuerdo. Mientras tanto, todo lo anotado queda bajo
+`guideline_version = "v0.1"`.
 
 ## Unidad y contexto
 
@@ -31,7 +32,7 @@ centrales para el post.
 | 7 | `sinophobia` | Hostilidad o prejuicio contra chinos o China. |
 | 8 | `eugenics` | Defensa o aprobación de cría selectiva, jerarquía genética, esterilización o “mejorar” el acervo genético. |
 | 9 | `ableism` | Prejuicio, burla o discriminación contra personas con discapacidad o enfermedad mental. |
-| 10 | `antifeminism` | Hostilidad u oposición al feminismo, los derechos de las mujeres o la igualdad de género. |
+| 10 | `misogyny` | Hostilidad, desprecio u objetificación hacia las mujeres como clase; inferioridad femenina u oposición a los derechos de las mujeres. |
 | 11 | `transphobia` | Hostilidad, burla o prejuicio contra personas trans o negación de su identidad. |
 | 12 | `homophobia` | Hostilidad, burla o prejuicio contra personas gays o lesbianas. |
 | 13 | `institutional_distrust` | Desconfianza generalizada hacia Estado, medios, academia o elecciones, sin afirmación conspirativa explícita. |
@@ -132,18 +133,22 @@ para fijar el criterio.
 - **Positivo:** “Los autistas no deberían tener hijos.”
 - **Negativo:** “Tiene una discapacidad y necesita apoyo.”
 
-#### `antifeminism`
+#### `misogyny`
 
-- **Incluye:** hostilidad u oposición al feminismo o a los derechos de las
-  mujeres; afirmaciones de inferioridad femenina, oposición al sufragio, al
-  trabajo o a la igualdad; slurs como “femoid”; teorías de privilegio femenino
-  o misandria usadas como ataque.
+- **Incluye:** hostilidad, desprecio u objetificación hacia las mujeres como
+  clase; afirmaciones de inferioridad femenina; reducción de mujeres a objetos
+  sexuales, botín de guerra o función reproductiva; slurs como “femoid”;
+  oposición al sufragio, al trabajo, a los derechos o a la igualdad; teorías de
+  privilegio femenino o misandria usadas como ataque. No exige mencionar el
+  feminismo ni una ideología explícita.
 - **Excluye:** discusión neutral sobre roles de género o una política concreta
-  sin hostilidad; crítica a una feminista por sus actos sin apuntar al
-  feminismo. `transphobia` y `homophobia` son ejes distintos y pueden
+  sin hostilidad; crítica a una mujer concreta por sus actos sin apuntar a las
+  mujeres como clase. `transphobia` y `homophobia` son ejes distintos y pueden
   coexistir si ambos son centrales.
 - **Positivo:** “Las mujeres no deberían votar; el feminismo arruinó la
   sociedad.”
+- **Positivo (objetificación):** comentarios sexuales degradantes sobre una
+  mujer o sobre mujeres de una nacionalidad concreta.
 - **Negativo:** “La candidata presentó su programa.”
 
 #### `transphobia`
@@ -228,9 +233,11 @@ para fijar el criterio.
    con `racism`, `ableism` o `ethnonationalism` si ambos son centrales.
 5. `ableism` **puede coexistir** con `eugenics` (por ejemplo, esterilización de
    personas discapacitadas).
-6. `transphobia` y `homophobia` son ejes independientes de `antifeminism`. Un
-   post puede ser ambos si ataca el feminismo y a personas trans o gays; no se
-   usa `antifeminism` para contenido exclusivamente trans/homofóbico.
+6. `transphobia` y `homophobia` son ejes independientes de `misogyny`. Un
+   post puede ser ambos si ataca a las mujeres y a personas trans o gays; no se
+   usa `misogyny` para contenido exclusivamente trans/homofóbico. `misogyny`
+   puede coexistir con `racism` o `ethnonationalism` cuando la hostilidad hacia
+   las mujeres se articula por su nacionalidad, etnia o raza.
 7. `conspiracy` exige un plan explícito. `institutional_distrust` es la
    etiqueta más amplia y no conspirativa. Pueden coexistir solo si ambos son
    centrales.
@@ -252,7 +259,7 @@ mapeo canónico está en `src/keklab/annotation/taxonomy.py`:
 |---|---|
 | `conspiracy` | `conspiracy` |
 | `ethnoracial_prejudice` | `ethnonationalism`, `racism`, `antisemitism`, `islamophobia`, `rusophobia`, `sinophobia` |
-| `gender_sexuality_prejudice` | `antifeminism`, `transphobia`, `homophobia` |
+| `gender_sexuality_prejudice` | `misogyny`, `transphobia`, `homophobia` |
 | `eugenics_ableism` | `eugenics`, `ableism` |
 | `institutional_distrust` | `institutional_distrust` |
 | `violence_acceleration` | `violence_glorification`, `accelerationism` |
@@ -263,6 +270,12 @@ Un post puede activar varias cabezas. La exportación CSV agrega
 `coarse_labels` y una columna one-hot `coarse_<cabeza>` por cada una. El
 protocolo de evaluación está en `docs/evaluation_protocol.md`.
 
+`national_stereotypes` (generalizaciones sobre el carácter o las costumbres de
+una nacionalidad) **no** forma parte de esta versión. Se documenta como clase
+candidata para el próximo estudio en `docs/evaluation_protocol.md`; en este
+piloto esos casos se anotan con `racism`, `ethnonationalism` o la etiqueta
+específica que corresponda.
+
 ## Toxicidad (ordinal 0–3)
 
 | Nivel | Definición |
@@ -270,7 +283,7 @@ protocolo de evaluación está en `docs/evaluation_protocol.md`.
 | `0` | Neutral, sin toxicidad. |
 | `1` | Insulto leve, hostilidad o edgy sin agresión grave. |
 | `2` | Deshumanización explícita, slur, acoso u odio dirigido a un grupo. |
-| `3` | Amenaza, incitación o elogio de violencia contra personas. |
+| `3` | Amenaza, incitación o celebración de violencia contra personas reales. |
 
 - Es una escala **ordinal**, no de intervalo. Para acuerdo se usa kappa
   cuadrática ponderada.
@@ -278,6 +291,11 @@ protocolo de evaluación está en `docs/evaluation_protocol.md`.
   (`0–1` vs `2–3`) como tarea secundaria.
 - La toxicidad es independiente de los marcos: un post puede tener un marco
   político y toxicidad `0`, o no tener marco y toxicidad `2`.
+- `violence_glorification` y toxicidad `3` pueden coincidir, pero **no son
+  sinónimos**. El marco describe la postura del post frente a la violencia; la
+  toxicidad mide la severidad del lenguaje. Un post puede ser tox `3` sin el
+  marco (por ejemplo, una amenaza directa) y puede llevar el marco con tox `2`
+  si celebra violencia sin dirigirla a personas reales.
 
 ## Flujo de trabajo
 
@@ -318,7 +336,7 @@ keklab annotate sample \
 keklab annotate run \
   --input data/samples/pilot_fourplebs.jsonl \
   --annotator flynnso \
-  --guideline v0 \
+  --guideline v0.1 \
   --round 1 \
   --out data/annotations/pilot_fourplebs_r1.jsonl
 ```
@@ -404,7 +422,10 @@ submuestra y se reportarán ambos resultados por separado.
 
 ## Versionado
 
-- `v0`: este documento, previo al piloto.
+- `v0`: documento previo al piloto.
+- `v0.1` (06-11-2026): `antifeminism` → `misogyny`, con definición ampliada
+  para cubrir objetificación y hostilidad hacia las mujeres como clase. Los 52
+  registros existentes se migraron; no hubo rejuicio.
 - `v1`: se congela después de la calibración y antes del conjunto oro.
 - Cualquier cambio posterior a `v1` sube la versión y obliga a reanotar la
   submuestra de control.

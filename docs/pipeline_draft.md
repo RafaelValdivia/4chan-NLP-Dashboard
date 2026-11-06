@@ -131,7 +131,7 @@ dedupe, timestamps nulos, configuración, registro y CLI).
 
 - **4plebs:** ventana de 24 meses; 20 posts aleatorios estratificados por mes y
   10 dirigidos a marcos raros (`rusophobia`, `sinophobia`, `accelerationism`,
-  `racism`, `eugenics`, `ableism`, `antifeminism`, `transphobia`,
+  `racism`, `eugenics`, `ableism`, `misogyny`, `transphobia`,
   `homophobia`) mediante
   búsqueda. Se guarda el OP y los posts citados como contexto. El cliente usa
   `curl` cuando está disponible porque el archivo rechaza la huella TLS de
@@ -217,6 +217,11 @@ pasan a ser ejes independientes que pueden coexistir con `antifeminism`. Se
 agregaron términos dirigidos para el marco nuevo (`feminism`, `feminist`,
 `femoid`, `suffragette`, `misandry`, `women's rights`, `female privilege`).
 
+> Nota (06-11-2026): este marco se renombró a `misogyny` y se amplió su
+> definición para incluir objetificación y hostilidad hacia las mujeres como
+> clase. Las menciones a `antifeminism` en esta sección son históricas. Ver la
+> enmienda en `docs/evaluation_protocol.md`.
+
 ### Chequeo de infradeterminación
 
 Con 18 marcos, 16 de ellos no exclusivos más `none` y `unclear`, el espacio de
@@ -255,7 +260,7 @@ En el piloto actual, la búsqueda de términos semilla encuentra:
 | `eugenics` | 0 |
 | `transphobia` | 0 |
 | `homophobia` | 0 |
-| `antifeminism` | 0 |
+| `misogyny` | 0 |
 
 Esto es solo un proxy de candidatos, no prevalencia anotada, pero confirma que
 los marcos nuevos tendrán muy pocos positivos en este piloto.
@@ -271,7 +276,7 @@ distinguir. Una propuesta de 8 cabezas:
 |---|---|
 | `conspiracy` | `conspiracy` |
 | `ethnoracial_prejudice` | `ethnonationalism`, `racism`, `antisemitism`, `islamophobia`, `rusophobia`, `sinophobia` |
-| `gender_sexuality_prejudice` | `antifeminism`, `transphobia`, `homophobia` |
+| `gender_sexuality_prejudice` | `misogyny`, `transphobia`, `homophobia` |
 | `eugenics_ableism` | `eugenics`, `ableism` |
 | `institutional_distrust` | `institutional_distrust` |
 | `violence_acceleration` | `violence_glorification`, `accelerationism` |

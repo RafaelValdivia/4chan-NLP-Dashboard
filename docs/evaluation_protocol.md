@@ -25,7 +25,7 @@ gruesas**; la correspondencia está en `src/keklab/annotation/taxonomy.py`.
 |---|---|
 | `conspiracy` | `conspiracy` |
 | `ethnoracial_prejudice` | `ethnonationalism`, `racism`, `antisemitism`, `islamophobia`, `rusophobia`, `sinophobia` |
-| `gender_sexuality_prejudice` | `antifeminism`, `transphobia`, `homophobia` |
+| `gender_sexuality_prejudice` | `misogyny`, `transphobia`, `homophobia` |
 | `eugenics_ableism` | `eugenics`, `ableism` |
 | `institutional_distrust` | `institutional_distrust` |
 | `violence_acceleration` | `violence_glorification`, `accelerationism` |
@@ -133,6 +133,28 @@ keklab annotate split --input merged.jsonl --out splits.jsonl --seed 13
 
 - `annotate export` agrega `coarse_labels` y columnas one-hot `coarse_*`
   además de los 18 marcos finos.
+
+## Enmiendas posteriores al pre-registro
+
+### 06-11-2026: `antifeminism` → `misogyny`
+
+Se renombra el marco fino 10 de `antifeminism` a `misogyny` y se amplía su
+definición para cubrir hostilidad, desprecio u objetificación hacia las mujeres
+como clase, no solo oposición al feminismo. Es una aclaración terminológica y
+conceptual: los tres positivos existentes (`176409794`, `226180859`,
+`151478852`) fueron revisados y confirmados como misoginia. El alias
+`antifeminism → misogyny` se mantiene en el código para leer archivos viejos.
+La taxonomía gruesa no cambia: `misogyny` sigue mapeando a
+`gender_sexuality_prejudice`. El codebook pasa a `v0.1`.
+
+### Trabajo futuro: `national_stereotypes`
+
+Se registra como clase candidata para el próximo estudio, no para este piloto.
+Definición propuesta: generalizaciones sobre rasgos, costumbres o carácter de
+una nacionalidad (por ejemplo, “las alemanas son…”, “los europeos del este
+son…”). Mapeo futuro a `ethnoracial_prejudice`. Agregarla a este piloto
+obligaría a re-anotar los posts previos para la clase y rompería la taxonomía
+pre-registrada.
 
 ## Limitaciones
 
