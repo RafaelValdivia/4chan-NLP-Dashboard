@@ -13,6 +13,11 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from keklab.annotation.labels import FRAME_LABELS
+from keklab.annotation.proposal import (
+    ProposalRecord,
+    ReviewRecord,
+    TaskRecord,
+)
 from keklab.annotation.schema import (
     AnnotationRecord,
     SamplePost,
@@ -109,6 +114,91 @@ def write_samples(samples: Iterable[SamplePost], path: str | Path) -> Path:
     """Write annotation candidates as JSONL."""
     rows = [sample.model_dump(mode="json") for sample in samples]
     return _atomic_write_rows(path, rows)
+
+
+# ---------------------------------------------------------------------------
+# AI-assistance files: tasks, proposals, reviews
+# ---------------------------------------------------------------------------
+def _load_records(
+    path: str | Path,
+    model: type[Any],
+    *,
+    strict: bool,
+    label: str,
+) -> list[Any]:
+    p = Path(path).expanduser()
+    if not p.exists():
+        return []
+    records: list[Any] = []
+    for obj in iter_ndjson(p, skip_errors=not strict):
+        try:
+            records.append(model.model_validate(obj))
+        except Exception as exc:  # pydantic ValidationError
+            if strict:
+                raise ValueError(f"{p}: invalid {label} record: {exc}") from exc
+            log.warning("Skipping invalid %s in %s: %s", label, p, exc)
+    return records
+
+
+def load_tasks(
+    path: str | Path, *, strict: bool = True
+) -> list[TaskRecord]:
+    return _load_records(path, TaskRecord, strict=strict, label="task")
+
+
+def write_tasks(tasks: Iterable[TaskRecord], path: str | Path) -> Path:
+    rows = [
+        task.model_dump(mode="json")
+        for task in sorted(tasks, key=lambda item: item.task_id)
+    ]
+    return _atomic_write_rows(path, rows)
+
+
+def load_proposals(
+    path: str | Path, *, strict: bool = True
+) -> list[ProposalRecord]:
+    return _load_records(path, ProposalRecord, strict=strict, label="proposal")
+
+
+def write_proposals(
+    proposals: Iterable[ProposalRecord], path: str | Path
+) -> Path:
+    rows = [
+        proposal.model_dump(mode="json")
+        for proposal in sorted(
+            proposals, key=lambda item: item.proposal_id
+        )
+    ]
+    return _atomic_write_rows(path, rows)
+
+
+def load_reviews(
+    path: str | Path, *, strict: bool = True
+) -> list[ReviewRecord]:
+    return _load_records(path, ReviewRecord, strict=strict, label="review")
+
+
+def write_reviews(reviews: Iterable[ReviewRecord], path: str | Path) -> Path:
+    rows = [
+        review.model_dump(mode="json")
+        for review in sorted(
+            reviews, key=lambda item: (item.reviewed_utc, item.review_id)
+        )
+    ]
+    return _atomic_write_rows(path, rows)
+
+
+def upsert_review(
+    reviews: Iterable[ReviewRecord], record: ReviewRecord
+) -> list[ReviewRecord]:
+    """Replace an existing review by id or append the new one."""
+    items = list(reviews)
+    for index, existing in enumerate(items):
+        if existing.review_id == record.review_id:
+            items[index] = record
+            return items
+    items.append(record)
+    return items
 
 
 # ---------------------------------------------------------------------------

@@ -11,14 +11,14 @@ from typing import Any, Callable, Iterable
 
 from keklab.annotation.agreement import agreement_report
 from keklab.annotation.audit import audit_samples
+from keklab.annotation.editing import apply_edit_command
 from keklab.annotation.labels import (
     FRAME_LABELS,
     TOXICITY_DESCRIPTIONS,
-    apply_frame_toggle,
     format_frame_menu,
-    parse_frame_numbers,
 )
 from keklab.annotation.merge import check_expected_counts, merge_samples
+from keklab.annotation.prompts import GUIDELINE_VERSION
 from keklab.annotation.retest import select_retest
 from keklab.annotation.sampler import (
     FourplebsArchiveClient,
@@ -272,34 +272,16 @@ def run_session(
                 emit(HELP_TEXT)
                 continue
 
-            if lowered in {"n", "none"}:
-                frames = apply_frame_toggle(frames, ["none"])
-                emit("frames: none")
-                continue
-
-            if lowered in {"u", "unclear"}:
-                frames = apply_frame_toggle(frames, ["unclear"])
-                emit("frames: unclear")
-                continue
-
-            if lowered in {"c", "clear"}:
-                frames = []
-                emit("frames: (none)")
-                continue
-
-            if lowered in {"t", "tox"}:
-                toxicity = 0 if toxicity is None else (toxicity + 1) % 4
-                emit(f"toxicity = {toxicity}: {TOXICITY_DESCRIPTIONS[toxicity]}")
-                continue
-
             try:
-                labels = parse_frame_numbers(command)
+                edited = apply_edit_command(frames, toxicity, command)
             except ValueError as exc:
                 emit(str(exc))
                 continue
-
-            frames = apply_frame_toggle(frames, labels)
-            emit("frames: " + (", ".join(frames) if frames else "(none)"))
+            if edited is None:
+                emit(f"Unknown command: {command!r} (press ? for help)")
+                continue
+            frames, toxicity, message = edited
+            emit(message)
 
     return {
         "saved": saved,
@@ -693,7 +675,7 @@ def add_annotate_parser(subparsers: Any) -> argparse.ArgumentParser:
     p_run.add_argument("--input", required=True)
     p_run.add_argument("--out", required=True)
     p_run.add_argument("--annotator", required=True)
-    p_run.add_argument("--guideline", default="v1")
+    p_run.add_argument("--guideline", default=GUIDELINE_VERSION)
     p_run.add_argument("--round", type=int, default=1)
     p_run.add_argument("--tier", choices=["gold", "silver"], default="gold")
     p_run.add_argument(
@@ -726,5 +708,10 @@ def add_annotate_parser(subparsers: Any) -> argparse.ArgumentParser:
     p_agreement.add_argument("--b", required=True)
     p_agreement.add_argument("--json", action="store_true")
     p_agreement.set_defaults(func=_cmd_annotate_agreement)
+
+    # AI-assisted pre-annotation, registered from a separate module.
+    from keklab.annotation.ai_cli import add_ai_parser
+
+    add_ai_parser(annotate_sub)
 
     return parser
