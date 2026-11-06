@@ -22,7 +22,7 @@ def test_collapse_frames_returns_canonical_order_and_deduplicates():
         ["sinophobia", "conspiracy", "racism"]
     ) == ["conspiracy", "ethnoracial_prejudice"]
 
-    assert collapse_frames(["antifeminism", "homophobia"]) == [
+    assert collapse_frames(["misogyny", "homophobia"]) == [
         "gender_sexuality_prejudice"
     ]
 

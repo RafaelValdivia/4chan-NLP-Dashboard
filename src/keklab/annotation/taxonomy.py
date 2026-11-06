@@ -32,7 +32,7 @@ FINE_TO_COARSE: dict[str, str] = {
     "sinophobia": "ethnoracial_prejudice",
     "eugenics": "eugenics_ableism",
     "ableism": "eugenics_ableism",
-    "antifeminism": "gender_sexuality_prejudice",
+    "misogyny": "gender_sexuality_prejudice",
     "transphobia": "gender_sexuality_prejudice",
     "homophobia": "gender_sexuality_prejudice",
     "institutional_distrust": "institutional_distrust",

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from keklab.annotation.labels import (
+    FRAME_ALIASES,
     FRAME_DESCRIPTIONS,
     FRAME_INDEX,
     FRAME_LABELS,
@@ -22,11 +23,12 @@ def test_vocabulary_is_unique_and_indexed():
         "racism",
         "eugenics",
         "ableism",
-        "antifeminism",
+        "misogyny",
         "transphobia",
         "homophobia",
     } <= set(FRAME_LABELS)
     assert "gender" not in FRAME_LABELS
+    assert "antifeminism" not in FRAME_LABELS
 
 
 def test_every_frame_has_a_description():
@@ -39,17 +41,24 @@ def test_targeted_search_terms_use_known_frames():
         "racism",
         "eugenics",
         "ableism",
-        "antifeminism",
+        "misogyny",
         "transphobia",
         "homophobia",
     } <= set(TARGETED_SEARCH_TERMS)
 
 
+def test_legacy_antifeminism_is_aliased_to_misogyny():
+    assert FRAME_ALIASES["antifeminism"] == "misogyny"
+    assert normalize_frame_labels(["antifeminism"]) == ["misogyny"]
+    assert normalize_frame_labels([" AntiFeminism "]) == ["misogyny"]
+    assert apply_frame_toggle([], ["antifeminism"]) == ["misogyny"]
+
+
 def test_normalize_is_case_insensitive_and_deduplicates():
     labels = normalize_frame_labels(
-        [" Conspiracy ", "conspiracy", "ANTIFEMINISM"]
+        [" Conspiracy ", "conspiracy", "MISOGYNY"]
     )
-    assert labels == ["conspiracy", "antifeminism"]
+    assert labels == ["conspiracy", "misogyny"]
 
 
 def test_new_prejudice_frames_are_accepted():
@@ -58,7 +67,7 @@ def test_new_prejudice_frames_are_accepted():
             "Racism",
             "Eugenics",
             "Ableism",
-            "Antifeminism",
+            "Misogyny",
             "Transphobia",
             "Homophobia",
         ]
@@ -66,7 +75,7 @@ def test_new_prejudice_frames_are_accepted():
         "racism",
         "eugenics",
         "ableism",
-        "antifeminism",
+        "misogyny",
         "transphobia",
         "homophobia",
     ]
@@ -89,15 +98,15 @@ def test_none_and_unclear_are_exclusive():
     with pytest.raises(ValueError, match="cannot be combined"):
         normalize_frame_labels(["none", "conspiracy"])
     with pytest.raises(ValueError, match="cannot be combined"):
-        normalize_frame_labels(["unclear", "antifeminism"])
+        normalize_frame_labels(["unclear", "misogyny"])
 
 
 def test_toggle_frames_and_exclusive_flags():
-    selected = apply_frame_toggle([], ["conspiracy", "antifeminism"])
-    assert selected == ["conspiracy", "antifeminism"]
+    selected = apply_frame_toggle([], ["conspiracy", "misogyny"])
+    assert selected == ["conspiracy", "misogyny"]
 
     selected = apply_frame_toggle(selected, ["conspiracy"])
-    assert selected == ["antifeminism"]
+    assert selected == ["misogyny"]
 
     selected = apply_frame_toggle(selected, ["none"])
     assert selected == ["none"]

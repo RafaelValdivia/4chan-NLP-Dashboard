@@ -16,7 +16,7 @@ FRAME_LABELS: tuple[str, ...] = (
     "sinophobia",
     "eugenics",
     "ableism",
-    "antifeminism",
+    "misogyny",
     "transphobia",
     "homophobia",
     "institutional_distrust",
@@ -29,6 +29,12 @@ FRAME_LABELS: tuple[str, ...] = (
 
 EXCLUSIVE_LABELS: frozenset[str] = frozenset({"none", "unclear"})
 
+# Previous vocabulary names that still appear in annotations or external data.
+# They are rewritten on load so old files remain readable.
+FRAME_ALIASES: dict[str, str] = {
+    "antifeminism": "misogyny",
+}
+
 FRAME_DESCRIPTIONS: dict[str, str] = {
     "conspiracy": "Explicit secret plot or coordination by elites/groups.",
     "ethnonationalism": "Generic national/ethnic purity or hierarchy not covered by a more specific label.",
@@ -39,7 +45,7 @@ FRAME_DESCRIPTIONS: dict[str, str] = {
     "sinophobia": "Hostility or prejudice targeting Chinese/China.",
     "eugenics": "Advocacy of selective breeding, genetic hierarchy, sterilization or improving the gene pool.",
     "ableism": "Prejudice, mockery or discrimination against disabled people or mental illness.",
-    "antifeminism": "Hostility or opposition to feminism, women's rights or gender equality.",
+    "misogyny": "Hostility, contempt or objectification toward women as a class; female inferiority or opposition to women's rights.",
     "transphobia": "Hostility, mockery or prejudice targeting trans people or denying their identity.",
     "homophobia": "Hostility, mockery or prejudice targeting gay or lesbian people.",
     "institutional_distrust": "Generalized distrust of state/media/academia/elections without an explicit conspiracy.",
@@ -54,7 +60,7 @@ TOXICITY_DESCRIPTIONS: dict[int, str] = {
     0: "Neutral / no toxicity.",
     1: "Mild insult, hostility or edginess.",
     2: "Explicit dehumanization, slur, harassment or group-targeted hate.",
-    3: "Threat, incitement or glorification of violence against people.",
+    3: "Threat, incitement or celebration of violence against real people.",
 }
 
 # Seed terms for targeted sampling of rare frames. These are not classifiers;
@@ -115,7 +121,9 @@ TARGETED_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
         "sodomy",
         "dyke",
     ),
-    "antifeminism": (
+    "misogyny": (
+        "misogyny",
+        "misogynist",
         "feminism",
         "feminist",
         "femoid",
@@ -124,6 +132,8 @@ TARGETED_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
         "misandry",
         "women's rights",
         "female privilege",
+        "slut",
+        "whore",
     ),
 }
 
@@ -137,6 +147,7 @@ def normalize_frame_labels(labels: Iterable[str]) -> list[str]:
     normalized: list[str] = []
     for raw in labels:
         label = str(raw).strip().lower()
+        label = FRAME_ALIASES.get(label, label)
         if not label:
             continue
         if label not in FRAME_LABELS:
@@ -165,6 +176,7 @@ def apply_frame_toggle(
     selected = list(dict.fromkeys(current))
     for label in labels:
         label = label.strip().lower()
+        label = FRAME_ALIASES.get(label, label)
         if label not in FRAME_LABELS:
             raise ValueError(f"Unknown frame label: {label}")
         if label in EXCLUSIVE_LABELS:
