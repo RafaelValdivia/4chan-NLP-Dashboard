@@ -454,6 +454,9 @@ def test_review_blind_hides_rationale_and_confidence():
     assert "SECRET RATIONALE" not in text
     assert "Confidence" not in text
     assert "Proposal: conspiracy" in text
+    # Text-only review: thread context is never rendered.
+    assert "OP text" not in text
+    assert "OP context" not in text
 
 
 # ---------------------------------------------------------------------------

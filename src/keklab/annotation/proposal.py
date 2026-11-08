@@ -126,7 +126,9 @@ class TaskRecord(BaseModel):
             source=sample.source,
             period=sample.period,
             timestamp_utc=sample.timestamp_utc,
-            subject=sample.subject,
+            # Text-only task: the production classifier sees only the target
+            # post, so thread context and subject are intentionally dropped.
+            subject=None,
             text_raw=sample.text_raw,
             text_clean=sample.text_clean,
             quotes=list(sample.quotes),
@@ -134,7 +136,7 @@ class TaskRecord(BaseModel):
             is_op=sample.is_op,
             country=sample.country,
             stratum=sanitize_stratum(sample.stratum),
-            context=sample.context,
+            context=SampleContext(),
             guideline_version=guideline_version,
             prompt_version=prompt_version,
             created_utc=created_utc or datetime.now(timezone.utc),

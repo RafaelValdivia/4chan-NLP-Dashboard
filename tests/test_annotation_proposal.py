@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
+from keklab.annotation.prompts import render_prompt
 from keklab.annotation.proposal import (
     ProposalRecord,
     ReviewRecord,
@@ -93,6 +94,20 @@ def test_task_sanitizes_targeted_stratum():
     assert "frame" not in task.model_dump(mode="json")["stratum"]
     assert "frame_labels" not in task.model_dump(mode="json")
     assert sanitize_stratum({"frame": "x", "term": "y"}) == {}
+    # Text-only task: context and subject are dropped.
+    assert task.subject is None
+    assert task.context.op is None
+    assert task.context.parents == []
+
+
+def test_prompt_contains_only_target_post_text():
+    task = make_task()
+    prompt = render_prompt(task)
+
+    assert task.text_raw in prompt
+    assert "OP text" not in prompt
+    assert "Subject:" not in prompt
+    assert '"context"' not in prompt
 
 
 def test_task_and_proposal_ids_are_deterministic():

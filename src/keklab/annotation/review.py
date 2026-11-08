@@ -97,34 +97,12 @@ def render_review(
     lines = [
         "",
         "=" * 78,
-        f"[{index}/{total}] {task.source} | {task.period or 'period?'} | "
-        f"{timestamp} | thread {task.thread_id}",
+        f"[{index}/{total}] post {task.post_id} | {task.source} | "
+        f"{task.period or 'period?'} | {timestamp} | thread {task.thread_id}",
     ]
 
-    if task.subject:
-        lines.append(f"Subject: {task.subject}")
-    if task.stratum:
-        lines.append(
-            f"Stratum: {json.dumps(task.stratum, ensure_ascii=False)}"
-        )
-
-    if task.context.op is not None:
-        lines.extend(
-            [
-                "",
-                f"OP context ({task.context.op.post_id}):",
-                _excerpt(task.context.op.text_raw, 450),
-            ]
-        )
-
-    for parent in task.context.parents:
-        lines.extend(
-            [
-                "",
-                f"Quoted post ({parent.post_id}):",
-                _excerpt(parent.text_raw, 450),
-            ]
-        )
+    # Text-only review: no OP, quotes, subject or sampling stratum. The
+    # production classifier will not see them either.
 
     lines.extend(["", "Post text:"])
     raw = _excerpt(task.text_raw or task.text_clean or "(empty post)")
