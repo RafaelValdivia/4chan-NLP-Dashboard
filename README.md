@@ -81,6 +81,45 @@ La anotación es interactiva por terminal. Los marcos son binarios multi-label;
 la toxicidad es ordinal `0–3`. El piloto usa self test-retest sobre ~20% de la
 muestra; el codebook y sus limitaciones están en `docs/annotation_guidelines.md`.
 
+## Pre-anotación asistida por IA
+
+El flujo `keklab annotate ai` permite que un agente proponga etiquetas para
+posts pendientes. Las propuestas **no son oro**: solo una persona puede
+aceptarlas o editarlas desde la revisión por terminal. La generación es
+file-based (tareas → propuestas → importación), sin llamadas a una API de LLM
+desde `keklab`.
+
+```bash
+# 1. construir tareas para los posts sin oro
+keklab annotate ai task \
+  --input data/samples/rotlk_pilot_200.jsonl \
+  --gold data/annotations/rotlk_pilot_r1.jsonl \
+  --out data/annotations/tasks/rotlk_pending_148.jsonl
+
+# 2. importar las propuestas que escribió el agente
+keklab annotate ai import \
+  --tasks data/annotations/tasks/rotlk_pending_148.jsonl \
+  --input data/annotations/proposals/big-pickle.jsonl \
+  --out data/annotations/proposals/rotlk_pending_148.big-pickle.jsonl
+
+# 3. validar humanamente (a = aceptar, e = editar, r = rechazar, s = saltar)
+keklab annotate ai review \
+  --tasks data/annotations/tasks/rotlk_pending_148.jsonl \
+  --proposals data/annotations/proposals/rotlk_pending_148.big-pickle.jsonl \
+  --gold data/annotations/rotlk_pilot_r1.jsonl \
+  --reviews data/annotations/reviews/rotlk_pending_148.big-pickle.jsonl \
+  --reviewer flynnso
+
+# 4. cobertura, decisiones y calibración
+keklab annotate ai stats \
+  --tasks data/annotations/tasks/rotlk_pending_148.jsonl \
+  --proposals data/annotations/proposals/rotlk_pending_148.big-pickle.jsonl \
+  --reviews data/annotations/reviews/rotlk_pending_148.big-pickle.jsonl
+```
+
+El contrato completo, incluida la regla **text-only** (sin OP, quotes, asunto ni
+estrato de muestreo), está en `docs/ai_annotation_protocol.md`.
+
 La configuración se selecciona con `--config`, la variable `KEKLAB_CONFIG` o
 `configs/default.yaml`, en ese orden. Las rutas relativas se resuelven contra la
 raíz del repositorio y las variables `${VAR}` se expanden desde el entorno.

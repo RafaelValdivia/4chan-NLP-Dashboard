@@ -9,11 +9,13 @@ acuerdo. Mientras tanto, todo lo anotado queda bajo
 ## Unidad y contexto
 
 - La unidad de anotación es el **post**, no el hilo.
-- Cada candidato conserva el OP del hilo y los posts citados (`>>id`) como
-  contexto.
-- Se anota el post objetivo, no el contexto. El contexto solo sirve para
-  desambiguar.
-- Si el post no se entiende ni con el contexto, se usa `unclear`.
+- La anotación se hace **solo con el texto del post objetivo**. No se usan el
+  OP, los posts citados (`>>id`), el asunto del hilo ni los metadatos de
+  muestreo para asignar marcos ni toxicidad, porque el clasificador de
+  producción no los verá.
+- Los datos de muestreo pueden conservarse para auditoría y trazabilidad, pero
+  no son una pista de etiqueta.
+- Si el post no se entiende por sí solo, se usa `unclear`.
 
 ## Marcos (multi-label binario)
 
@@ -213,8 +215,9 @@ para fijar el criterio.
 
 #### `unclear`
 
-- **Incluye:** truncamiento, referencias que no se pueden resolver ni con el
-  contexto, sarcasmo genuinamente ambiguo, texto en otro idioma sin traducir.
+- **Incluye:** truncamiento, referencias que no se pueden resolver con el
+  texto del post, sarcasmo genuinamente ambiguo, texto en otro idioma sin
+  traducir.
 - **Regla:** exclusivo con todos los demás marcos y con `none`.
 
 ### Reglas de solapamiento
@@ -245,8 +248,8 @@ para fijar el criterio.
    `accelerationism` describe el deseo de acelerar el colapso. Pueden coexistir.
 9. `none` y `unclear` son excluyentes con cualquier otro marco y entre sí.
 10. Si hay duda entre `none` y un marco: si el marco está claramente presente,
-    anotarlo; si no, `none`. Si no se puede decidir por falta de contexto,
-    `unclear`.
+    anotarlo; si no, `none`. Si no se puede decidir por falta de información en
+    el texto del post, `unclear`.
 11. No se anota ideología inferida. Se anota lo que el post dice o implica de
     forma directa.
 
@@ -407,15 +410,15 @@ submuestra y se reportarán ambos resultados por separado.
 
 ## Casos límite
 
-- **Greentext y citas:** el texto citado es contexto; no se anota como si
-  fuera del post objetivo.
-- **Posts vacíos o solo-imagen:** `none`, salvo que el contexto inmediato
-  aporte un marco claro.
+- **Greentext y citas:** el texto citado es contexto y no se usa para
+  etiquetar; solo se anota el texto propio del post objetivo.
+- **Posts vacíos o solo-imagen:** `none`; no se infiere un marco desde el
+  contexto.
 - **Truncamiento:** si falta el final y cambia el sentido, `unclear`.
 - **Idioma:** si no se puede interpretar con seguridad, `unclear`; no traducir
   con herramientas externas durante la anotación.
-- **Sarcasmo:** si el marco es recuperable por el contexto, anotarlo; si no,
-  `unclear`.
+- **Sarcasmo:** si el marco es recuperable por el texto del post, anotarlo; si
+  no, `unclear`.
 - **Spam/raid:** `meta_topic` si es cultura del tablero; `none` si es ruido sin
   contenido.
 - **Noticias neutras:** `none`, aunque el tema sea político.
@@ -426,6 +429,12 @@ submuestra y se reportarán ambos resultados por separado.
 - `v0.1` (06-11-2026): `antifeminism` → `misogyny`, con definición ampliada
   para cubrir objetificación y hostilidad hacia las mujeres como clase. Los 52
   registros existentes se migraron; no hubo rejuicio.
+- Enmienda text-only (06-11-2026, sin subir versión): la anotación pasa a usar
+  **solo el texto del post objetivo**. Se eliminan el OP, los quotes, el asunto
+  del hilo y el estrato de muestreo de las tareas, del prompt y de la UI de
+  revisión. El vocabulario y los IDs se mantienen en `v0.1`/`prompt v1` por
+  estabilidad, pero las anotaciones previas que dependían del contexto deben
+  auditarse y reanotarse antes de usarse como oro de entrenamiento.
 - `v1`: se congela después de la calibración y antes del conjunto oro.
 - Cualquier cambio posterior a `v1` sube la versión y obliga a reanotar la
   submuestra de control.
