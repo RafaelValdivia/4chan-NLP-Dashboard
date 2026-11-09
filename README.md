@@ -56,7 +56,7 @@ export KEKLAB_ROTLK_DATASET=/run/media/flynnso/Archivos/pol_0616-1119_labeled.ta
 keklab annotate sample --source rotlk --months 24 --random 20 --targeted 10 \
   --seed 13 --out data/samples/rotlk_pilot.jsonl
 keklab annotate run --input data/samples/pilot_fourplebs.jsonl \
-  --annotator flynnso --guideline v0.1 --out data/annotations/pilot_r1.jsonl
+  --annotator flynnso --guideline v0.2 --out data/annotations/pilot_r1.jsonl
 keklab annotate stats --input data/annotations/pilot_r1.jsonl
 keklab annotate export --input data/annotations/pilot_r1.jsonl --format csv
 keklab annotate agreement --a data/annotations/pilot_r1.jsonl \
@@ -72,7 +72,7 @@ keklab annotate retest --input merged.jsonl --out retest.jsonl \
   --fraction 0.2 --seed 13
 ```
 
-La anotación fina usa 18 marcos; el modelado los agrupa en 8 cabezas
+La anotación fina usa 16 marcos; el modelado los agrupa en 7 cabezas
 (`src/keklab/annotation/taxonomy.py`). El CSV exporta ambos niveles
 (`frame_labels`/`coarse_labels` y sus one-hot). El protocolo de evaluación
 pre-registrado está en `docs/evaluation_protocol.md`.

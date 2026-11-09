@@ -1,10 +1,17 @@
-# Codebook de anotación — v0.1
+# Codebook de anotación — v0.2
 
 Este documento fija el contrato de etiquetado humano del proyecto. Se aplica a
 la muestra de 4plebs (período reciente) y al dump de ROTLK (período histórico).
 La versión se congela como `v1` recién después del piloto y del control de
-acuerdo. Mientras tanto, todo lo anotado queda bajo
-`guideline_version = "v0.1"`.
+acuerdo. El piloto de 200 posts se anotó bajo `guideline_version = "v0.1"`.
+
+> **Cambio v0.2 (09-11-2026).** Se retiraron los marcos `eugenics` y `ableism`
+> y la cabeza gruesa `eugenics_ableism`. El codebook queda en **16 marcos
+> finos** y **7 cabezas gruesas**. Los archivos históricos conservan las
+> etiquetas retiradas como evidencia; el cargador las elimina y, si un registro
+> queda vacío, lo colapsa a `none`. La decisión y su justificación están en
+> `Journal/Journal PLN. 16. 09-11-26.md` y en la enmienda de
+> `docs/evaluation_protocol.md`.
 
 ## Unidad y contexto
 
@@ -32,17 +39,15 @@ centrales para el post.
 | 5 | `islamophobia` | Hostilidad o prejuicio contra musulmanes o el islam. |
 | 6 | `rusophobia` | Hostilidad o prejuicio contra rusos o Rusia. |
 | 7 | `sinophobia` | Hostilidad o prejuicio contra chinos o China. |
-| 8 | `eugenics` | Defensa o aprobación de cría selectiva, jerarquía genética, esterilización o “mejorar” el acervo genético. |
-| 9 | `ableism` | Prejuicio, burla o discriminación contra personas con discapacidad o enfermedad mental. |
-| 10 | `misogyny` | Hostilidad, desprecio u objetificación hacia las mujeres como clase; inferioridad femenina u oposición a los derechos de las mujeres. |
-| 11 | `transphobia` | Hostilidad, burla o prejuicio contra personas trans o negación de su identidad. |
-| 12 | `homophobia` | Hostilidad, burla o prejuicio contra personas gays o lesbianas. |
-| 13 | `institutional_distrust` | Desconfianza generalizada hacia Estado, medios, academia o elecciones, sin afirmación conspirativa explícita. |
-| 14 | `violence_glorification` | Elogio, celebración o incitación a la violencia (no mera discusión o noticia). |
-| 15 | `accelerationism` | Deseo de acelerar el colapso, el conflicto o la desestabilización. |
-| 16 | `meta_topic` | Meta-discusión del tablero, moderación, raids, cultura online. |
-| 17 | `none` | Ningún marco reconocible. |
-| 18 | `unclear` | Contexto insuficiente, truncamiento o ambigüedad genuina. |
+| 8 | `misogyny` | Hostilidad, desprecio u objetificación hacia las mujeres como clase; inferioridad femenina u oposición a los derechos de las mujeres. |
+| 9 | `transphobia` | Hostilidad, burla o prejuicio contra personas trans o negación de su identidad. |
+| 10 | `homophobia` | Hostilidad, burla o prejuicio contra personas gays o lesbianas. |
+| 11 | `institutional_distrust` | Desconfianza generalizada hacia Estado, medios, academia o elecciones, sin afirmación conspirativa explícita. |
+| 12 | `violence_glorification` | Elogio, celebración o incitación a la violencia (no mera discusión o noticia). |
+| 13 | `accelerationism` | Deseo de acelerar el colapso, el conflicto o la desestabilización. |
+| 14 | `meta_topic` | Meta-discusión del tablero, moderación, raids, cultura online. |
+| 15 | `none` | Ningún marco reconocible. |
+| 16 | `unclear` | Contexto insuficiente, truncamiento o ambigüedad genuina. |
 
 ### Criterios por marco
 
@@ -113,27 +118,6 @@ para fijar el criterio.
   las personas chinas.
 - **Positivo:** “Los chinos están por todos lados comprando todo, nos invaden.”
 - **Negativo:** “China anunció nuevas tarifas.”
-
-#### `eugenics`
-
-- **Incluye:** defensa o aprobación de cría selectiva, esterilización,
-  jerarquía genética, “gene pool”, disgenia, mejorar la “raza” o la población
-  mediante selección reproductiva.
-- **Excluye:** genética médica o discusión histórica neutral sin aprobación;
-  el simple uso de “evolución” sin programa reproductivo.
-- **Positivo:** “Hay que esterilizar a los criminales para mejorar el acervo
-  genético.”
-- **Negativo:** “El documental describe las políticas eugenésicas del siglo XX.”
-
-#### `ableism`
-
-- **Incluye:** insultos o burlas por discapacidad, enfermedad mental o
-  neurodivergencia; exclusión, inferioridad o eliminación de personas
-  discapacitadas; uso de “retrasado” como insulto.
-- **Excluye:** mención neutral de una discapacidad; crítica a una persona sin
-  apuntar a su discapacidad.
-- **Positivo:** “Los autistas no deberían tener hijos.”
-- **Negativo:** “Tiene una discapacidad y necesita apoyo.”
 
 #### `misogyny`
 
@@ -223,39 +207,34 @@ para fijar el criterio.
 ### Reglas de solapamiento
 
 1. Las etiquetas de prejuicio con blanco específico (`antisemitism`,
-   `islamophobia`, `rusophobia`, `sinophobia`, `transphobia`, `homophobia`,
-   `ableism`) **reemplazan** a las genéricas `ethnonationalism` y `racism`
-   cuando la etiqueta específica cubre el mismo contenido. Si el post
-   contiene prejuicios distintos (por ejemplo, racismo y ableismo), se anotan
-   ambos.
+   `islamophobia`, `rusophobia`, `sinophobia`, `transphobia`, `homophobia`)
+   **reemplazan** a las genéricas `ethnonationalism` y `racism` cuando la
+   etiqueta específica cubre el mismo contenido. Si el post contiene prejuicios
+   distintos (por ejemplo, racismo y homofobia), se anotan ambos.
 2. `racism` se usa para prejuicio racial/étnico sin una etiqueta más específica;
    reemplaza a `ethnonationalism` cuando el eje es racial.
 3. `ethnonationalism` se reserva para encuadres nacionales/étnicos genéricos
    sin grupo nombrado ni eje racial específico.
-4. `eugenics` describe una ideología de mejora genética y **puede coexistir**
-   con `racism`, `ableism` o `ethnonationalism` si ambos son centrales.
-5. `ableism` **puede coexistir** con `eugenics` (por ejemplo, esterilización de
-   personas discapacitadas).
-6. `transphobia` y `homophobia` son ejes independientes de `misogyny`. Un
+4. `transphobia` y `homophobia` son ejes independientes de `misogyny`. Un
    post puede ser ambos si ataca a las mujeres y a personas trans o gays; no se
    usa `misogyny` para contenido exclusivamente trans/homofóbico. `misogyny`
    puede coexistir con `racism` o `ethnonationalism` cuando la hostilidad hacia
    las mujeres se articula por su nacionalidad, etnia o raza.
-7. `conspiracy` exige un plan explícito. `institutional_distrust` es la
+5. `conspiracy` exige un plan explícito. `institutional_distrust` es la
    etiqueta más amplia y no conspirativa. Pueden coexistir solo si ambos son
    centrales.
-8. `violence_glorification` describe la postura frente a la violencia;
+6. `violence_glorification` describe la postura frente a la violencia;
    `accelerationism` describe el deseo de acelerar el colapso. Pueden coexistir.
-9. `none` y `unclear` son excluyentes con cualquier otro marco y entre sí.
-10. Si hay duda entre `none` y un marco: si el marco está claramente presente,
-    anotarlo; si no, `none`. Si no se puede decidir por falta de información en
-    el texto del post, `unclear`.
-11. No se anota ideología inferida. Se anota lo que el post dice o implica de
-    forma directa.
+7. `none` y `unclear` son excluyentes con cualquier otro marco y entre sí.
+8. Si hay duda entre `none` y un marco: si el marco está claramente presente,
+   anotarlo; si no, `none`. Si no se puede decidir por falta de información en
+   el texto del post, `unclear`.
+9. No se anota ideología inferida. Se anota lo que el post dice o implica de
+   forma directa.
 
 ### Taxonomía de modelado
 
-La anotación usa los 18 marcos finos, pero el modelo agrupa en 8 cabezas. El
+La anotación usa los 16 marcos finos, pero el modelo agrupa en 7 cabezas. El
 mapeo canónico está en `src/keklab/annotation/taxonomy.py`:
 
 | Cabeza | Marcos finos |
@@ -263,7 +242,6 @@ mapeo canónico está en `src/keklab/annotation/taxonomy.py`:
 | `conspiracy` | `conspiracy` |
 | `ethnoracial_prejudice` | `ethnonationalism`, `racism`, `antisemitism`, `islamophobia`, `rusophobia`, `sinophobia` |
 | `gender_sexuality_prejudice` | `misogyny`, `transphobia`, `homophobia` |
-| `eugenics_ableism` | `eugenics`, `ableism` |
 | `institutional_distrust` | `institutional_distrust` |
 | `violence_acceleration` | `violence_glorification`, `accelerationism` |
 | `meta_topic` | `meta_topic` |
@@ -316,8 +294,8 @@ keklab annotate sample \
 
 - **Aleatorio:** estima prevalencia. Estratificado por mes.
 - **Dirigido:** enriquece marcos raros (`rusophobia`, `sinophobia`,
-  `accelerationism`, `racism`, `eugenics`, `ableism`, `transphobia`,
-  `homophobia`) para entrenamiento/calibración. No sirve para prevalencia.
+  `accelerationism`, `racism`, `transphobia`, `homophobia`) para
+  entrenamiento/calibración. No sirve para prevalencia.
 - Se pueden conservar algunos posts vacíos o solo-imagen con
   `--include-empty N` para probar `none`.
 - Para ROTLK se lee el dump comprimido en sitio, sin copiarlo ni extraerlo:

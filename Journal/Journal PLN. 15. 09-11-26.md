@@ -1,5 +1,12 @@
 # Journal PLN — Entrada 15 (09-11-2026)
 
+> **Nota posterior (09-11-2026).** El análisis de esta entrada se hizo con la
+> taxonomía de 18 marcos / 8 cabezas. La entrada
+> `Journal/Journal PLN. 16. 09-11-26.md` retira `eugenics` y `ableism`, deja el
+> esquema en 16 marcos / 7 cabezas y actualiza el soporte. Las cifras de esta
+> entrada se conservan como registro histórico; el veredicto de
+> infradeterminación no cambia.
+
 ## Contexto
 
 Esta entrada cierra la revisión humana del corpus de 200 posts, registra la

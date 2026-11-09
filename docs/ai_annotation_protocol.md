@@ -150,12 +150,14 @@ sirve para comparaciones diseñadas de IA vs. humano.
 
 ## Versiones y reproducibilidad
 
-- `guideline_version`: versión del codebook (`v0.1` en este piloto).
-- `prompt_version`: versión del contrato de prompt (`v1`).
-- `prompt_sha256`: hash del template. Se imprime en el reporte de
+- `guideline_version`: versión del codebook (`v0.2` vigente; el piloto de 200 se
+  anotó bajo `v0.1`).
+- `prompt_version`: versión del contrato de prompt (`v2`).
+- `prompt_sha256`: hash del contrato completo. Se imprime en el reporte de
   `keklab annotate ai task`, pero **no se persiste** en el JSONL de tareas ni
-  en las propuestas. Hashea solo `PROMPT_TEMPLATE`, no el menú de marcos, el
-  menú de toxicidad ni el prompt renderizado.
+  en las propuestas. Desde `v2` hashea `PROMPT_TEMPLATE` **más** el menú
+  generado de marcos y el de toxicidad; la versión `v1` hasheaba solo el
+  template.
 - `model` y `provider`: se guardan en cada propuesta, pero son autodeclarados
   por el archivo; el flujo file-based no verifica qué modelo generó el texto.
 - Los IDs son prefijos SHA-256 deterministas:
@@ -178,9 +180,10 @@ sirve para comparaciones diseñadas de IA vs. humano.
   usarse para entrenar.
 - **Propuestas no son oro.** La calidad de la IA se mide después de la revisión
   humana; no se usa el acuerdo IA-humano como sustituto del juicio humano.
-- **Trazabilidad incompleta del prompt.** El hash del template no se guarda en
-  las tareas y solo cubre el texto del template. La versión `v1` se mantuvo
-  tras el cambio text-only, así que por sí sola no distingue ambos prompts.
+- **Trazabilidad incompleta del prompt.** Aunque `v2` hashea el template y los
+  menús, el hash no se guarda en las tareas. Además, `v1` se mantuvo tras el
+  cambio text-only, así que por sí sola no distingue ambos prompts; la versión
+  `v2` marca el corte posterior al retiro de marcos.
 - **Trazabilidad incompleta de la propuesta.** El ID no incluye el contenido y
   el review no conserva confianza, rationale ni evidencia. Para auditorías
   estrictas hay que conservar los archivos de propuestas y comparar sus campos.
@@ -201,6 +204,7 @@ sirve para comparaciones diseñadas de IA vs. humano.
   contiene misoginia; requiere revisión.
 - La auditoría de reproducibilidad y trazabilidad está documentada en
   `Journal/Journal PLN. 15. 09-11-26.md`.
-- El corpus completo deja al modelo fino de 18 marcos infradeterminado; solo
+- El corpus completo deja al modelo fino de 16 marcos infradeterminado; solo
   `ethnoracial_prejudice` y `no_frame` cumplen el soporte grueso. Ver la misma
-  entrada para el chequeo y la tabla de posts necesarios.
+  entrada para el chequeo y la tabla de posts necesarios. El retiro de
+  `eugenics`/`ableism` está en `Journal/Journal PLN. 16. 09-11-26.md`.

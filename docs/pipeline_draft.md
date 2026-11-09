@@ -2,6 +2,13 @@
 
 Orden de ejecución lógico del pipeline actual y decisiones de implementación.
 
+> **Nota (09-11-2026).** Este documento conserva el diseño original del piloto.
+> Las secciones que describen 18 marcos finos y 8 cabezas gruesas (incluida
+> `eugenics_ableism`) están **superadas** por el codebook v0.2: 16 marcos y 7
+> cabezas, tras retirar `eugenics` y `ableism`. La referencia vigente es
+> `docs/annotation_guidelines.md`; la decisión está en
+> `Journal/Journal PLN. 16. 09-11-26.md`.
+
 ## Orden de ejecución
 
 | Orden | Módulo/Archivo | Función | Notas |

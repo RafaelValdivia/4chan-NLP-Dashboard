@@ -18,7 +18,7 @@ partición train/dev/test, métricas y reglas para marcos con poco soporte.
 
 ## Taxonomía
 
-La anotación conserva **18 marcos finos**. El modelado usa **8 cabezas
+La anotación conserva **16 marcos finos**. El modelado usa **7 cabezas
 gruesas**; la correspondencia está en `src/keklab/annotation/taxonomy.py`.
 
 | Cabeza gruesa | Marcos finos |
@@ -26,7 +26,6 @@ gruesas**; la correspondencia está en `src/keklab/annotation/taxonomy.py`.
 | `conspiracy` | `conspiracy` |
 | `ethnoracial_prejudice` | `ethnonationalism`, `racism`, `antisemitism`, `islamophobia`, `rusophobia`, `sinophobia` |
 | `gender_sexuality_prejudice` | `misogyny`, `transphobia`, `homophobia` |
-| `eugenics_ableism` | `eugenics`, `ableism` |
 | `institutional_distrust` | `institutional_distrust` |
 | `violence_acceleration` | `violence_glorification`, `accelerationism` |
 | `meta_topic` | `meta_topic` |
@@ -132,7 +131,7 @@ keklab annotate split --input merged.jsonl --out splits.jsonl --seed 13
 ```
 
 - `annotate export` agrega `coarse_labels` y columnas one-hot `coarse_*`
-  además de los 18 marcos finos.
+  además de los 16 marcos finos.
 
 ## Enmiendas posteriores al pre-registro
 
@@ -149,42 +148,76 @@ La taxonomía gruesa no cambia: `misogyny` sigue mapeando a
 
 ### 09-11-2026: soporte observado con el piloto completo
 
-Con 200 posts anotados (190 aleatorios + 10 dirigidos) y la partición
-pre-registrada 120/40/40, solo **2 de 8** cabezas gruesas cumplen el umbral de
-≥30 positivos en train y ≥5 en test:
+Con 200 posts anotados (190 aleatorios + 10 dirigidos), la partición
+pre-registrada 120/40/40 y la taxonomía vigente de 16 marcos / 7 cabezas, solo
+**2 de 7** cabezas gruesas cumplen el umbral de ≥30 positivos en train y ≥5 en
+test:
 
 | Cabeza | `p` random | train+ | test+ | Umbral |
 |---|---:|---:|---:|---|
-| `no_frame` | 58.4 % | 70 | 22 | ✅ |
+| `no_frame` | 59.5 % | 70 | 22 | ✅ |
 | `ethnoracial_prejudice` | 25.8 % | 30 | 12 | ✅ borderline |
 | `gender_sexuality_prejudice` | 10.5 % | 13 | 5 | ❌ |
 | `violence_acceleration` | 7.9 % | 10 | 5 | ❌ |
 | `meta_topic` | 4.7 % | 6 | 2 | ❌ |
 | `institutional_distrust` | 3.2 % | 5 | 0 | ❌ |
 | `conspiracy` | 2.6 % | 4 | 2 | ❌ |
-| `eugenics_ableism` | 1.6 % | 1 | 0 | ❌ |
 
 `ethnoracial_prejudice` llega a 30 positivos en train, pero uno es dirigido; con
 solo aleatorios tendría 29. Es la única cabeza sustantiva con soporte y aun así
 es borderline.
 
-En el esquema fino, **17 de 18** marcos fallan el umbral. El único que pasa es
-`none` (61 train / 22 test), que no es un marco sustantivo. `sinophobia` y
-`eugenics` tienen 0 positivos; `rusophobia`, `transphobia`, `ableism` y
-`accelerationism` tienen 1–2.
+En el esquema fino, **15 de 16** marcos fallan el umbral. El único que pasa es
+`none` (61 train / 22 test), que no es un marco sustantivo. `sinophobia` tiene
+0 positivos; `rusophobia`, `transphobia` y `accelerationism` tienen 1–2.
 
-Consecuencia: el piloto no permite entrenar el modelo fino de 18 marcos. Para el
+Consecuencia: el piloto no permite entrenar el modelo fino de 16 marcos. Para el
 modelo grueso, solo hay soporte para un proof-of-concept binario de
 `ethnoracial_prejudice` contra el resto; las otras cabezas se reportan de forma
 descriptiva hasta ampliar la muestra. La entrada
 `Journal/Journal PLN. 15. 09-11-26.md` incluye la proyección de posts necesarios
 por cabeza.
 
+El retiro de `eugenics` y `ableism` no cambia el veredicto: `eugenics_ableism`
+tenía 1 positivo en train y 0 en test, así que su cabeza tampoco era modelable.
+Los detalles están en la enmienda siguiente.
+
 También se documenta una inconsistencia de la partición: 5 dirigidos quedaron
 en `train`, 4 en `dev` y 1 en `test`, aunque el protocolo dice que los dirigidos
 son solo para entrenamiento/calibración. Antes de E0/E2 hay que excluirlos de
 `dev`/`test` o registrar una enmienda explícita; no se cambia la partición en
 silencio.
+
+### 09-11-2026: retiro de `eugenics` y `ableism`
+
+Se retiran los marcos finos `eugenics` (índice 8) y `ableism` (índice 9) y la
+cabeza gruesa `eugenics_ableism`. La taxonomía pasa de 18 marcos / 8 cabezas a
+**16 marcos / 7 cabezas**. La decisión se toma tras el piloto de 200 y se
+registra en `Journal/Journal PLN. 16. 09-11-26.md`.
+
+Motivos:
+
+- `eugenics` tuvo **0 positivos** en los 200 posts; no es estimable ni
+  modelable con esta muestra.
+- `ableism` tuvo **3 positivos**, todos concentrados en el uso de “retard” como
+  insulto genérico. La etiqueta no separaba un encuadre ideológico distinto y
+  añadía una decisión de anotación poco confiable.
+- La cabeza `eugenics_ableism` quedaba con 1 positivo en train y 0 en test, por
+  debajo de cualquier umbral razonable.
+
+Migración de los tres registros afectados:
+
+| Post | Split | Antes | Después |
+|---|---|---|---|
+| `184178792` | dev | `ableism` | `none` |
+| `201863027` | dev | `ableism` | `none` |
+| `195351182` | train | `rusophobia`, `homophobia`, `islamophobia`, `ableism`, `violence_glorification` | `rusophobia`, `homophobia`, `islamophobia`, `violence_glorification` |
+
+Los archivos históricos conservan las etiquetas retiradas como procedencia. El
+cargador (`normalize_frame_labels`) las elimina y, si un registro queda vacío,
+lo colapsa a `none`. La edición interactiva las rechaza. Las versiones suben a
+`guideline_version = "v0.2"` y `prompt_version = "v2"`; el hash del prompt ahora
+cubre también los menús generados de marcos y toxicidad.
 
 ### Trabajo futuro: `national_stereotypes`
 
@@ -199,7 +232,7 @@ pre-registrada.
 
 - 200 posts es un piloto: alcanza para prevalencia descriptiva y, con el
   soporte observado, solo para un proof-of-concept binario de
-  `ethnoracial_prejudice`; no para las 8 cabezas gruesas ni para los 18 marcos
+  `ethnoracial_prejudice`; no para las 7 cabezas gruesas ni para los 16 marcos
   finos.
 - Un solo anotador y self test-retest: no hay acuerdo inter-anotador.
 - La muestra es histórica (2016–2019); no garantiza generalización a `/pol/`
