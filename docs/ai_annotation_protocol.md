@@ -191,8 +191,8 @@ sirve para comparaciones diseñadas de IA vs. humano.
 
 - 200 posts en la muestra, los 200 con decisión humana registrada: 52
   anotaciones originales + 148 revisiones del flujo AI.
-- 148 revisiones: 124 `accept`, 23 `edit`, 1 `skip`, 0 `reject`.
-- 199 registros de oro; `166273462` quedó como `skip` sin oro.
+- 148 revisiones: 124 `accept`, 24 `edit`, 0 `skip`, 0 `reject`.
+- 200 registros de oro.
 - 0 propuestas pendientes de revisión.
 - Las propuestas se generaron con `provider=opencode`, `model=big-pickle`.
 - `229326221` fue aceptado con `ethnonationalism` antes de la corrección
@@ -201,3 +201,6 @@ sirve para comparaciones diseñadas de IA vs. humano.
   contiene misoginia; requiere revisión.
 - La auditoría de reproducibilidad y trazabilidad está documentada en
   `Journal/Journal PLN. 15. 09-11-26.md`.
+- El corpus completo deja al modelo fino de 18 marcos infradeterminado; solo
+  `ethnoracial_prejudice` y `no_frame` cumplen el soporte grueso. Ver la misma
+  entrada para el chequeo y la tabla de posts necesarios.

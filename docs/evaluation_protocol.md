@@ -147,6 +147,45 @@ conceptual: los tres positivos existentes (`176409794`, `226180859`,
 La taxonomía gruesa no cambia: `misogyny` sigue mapeando a
 `gender_sexuality_prejudice`. El codebook pasa a `v0.1`.
 
+### 09-11-2026: soporte observado con el piloto completo
+
+Con 200 posts anotados (190 aleatorios + 10 dirigidos) y la partición
+pre-registrada 120/40/40, solo **2 de 8** cabezas gruesas cumplen el umbral de
+≥30 positivos en train y ≥5 en test:
+
+| Cabeza | `p` random | train+ | test+ | Umbral |
+|---|---:|---:|---:|---|
+| `no_frame` | 58.4 % | 70 | 22 | ✅ |
+| `ethnoracial_prejudice` | 25.8 % | 30 | 12 | ✅ borderline |
+| `gender_sexuality_prejudice` | 10.5 % | 13 | 5 | ❌ |
+| `violence_acceleration` | 7.9 % | 10 | 5 | ❌ |
+| `meta_topic` | 4.7 % | 6 | 2 | ❌ |
+| `institutional_distrust` | 3.2 % | 5 | 0 | ❌ |
+| `conspiracy` | 2.6 % | 4 | 2 | ❌ |
+| `eugenics_ableism` | 1.6 % | 1 | 0 | ❌ |
+
+`ethnoracial_prejudice` llega a 30 positivos en train, pero uno es dirigido; con
+solo aleatorios tendría 29. Es la única cabeza sustantiva con soporte y aun así
+es borderline.
+
+En el esquema fino, **17 de 18** marcos fallan el umbral. El único que pasa es
+`none` (61 train / 22 test), que no es un marco sustantivo. `sinophobia` y
+`eugenics` tienen 0 positivos; `rusophobia`, `transphobia`, `ableism` y
+`accelerationism` tienen 1–2.
+
+Consecuencia: el piloto no permite entrenar el modelo fino de 18 marcos. Para el
+modelo grueso, solo hay soporte para un proof-of-concept binario de
+`ethnoracial_prejudice` contra el resto; las otras cabezas se reportan de forma
+descriptiva hasta ampliar la muestra. La entrada
+`Journal/Journal PLN. 15. 09-11-26.md` incluye la proyección de posts necesarios
+por cabeza.
+
+También se documenta una inconsistencia de la partición: 5 dirigidos quedaron
+en `train`, 4 en `dev` y 1 en `test`, aunque el protocolo dice que los dirigidos
+son solo para entrenamiento/calibración. Antes de E0/E2 hay que excluirlos de
+`dev`/`test` o registrar una enmienda explícita; no se cambia la partición en
+silencio.
+
 ### Trabajo futuro: `national_stereotypes`
 
 Se registra como clase candidata para el próximo estudio, no para este piloto.
@@ -158,8 +197,10 @@ pre-registrada.
 
 ## Limitaciones
 
-- 200 posts es un piloto: alcanza para prevalencia descriptiva y, si las
-  cabezas están en 15–20%, para una primera versión del modelo grueso.
+- 200 posts es un piloto: alcanza para prevalencia descriptiva y, con el
+  soporte observado, solo para un proof-of-concept binario de
+  `ethnoracial_prejudice`; no para las 8 cabezas gruesas ni para los 18 marcos
+  finos.
 - Un solo anotador y self test-retest: no hay acuerdo inter-anotador.
 - La muestra es histórica (2016–2019); no garantiza generalización a `/pol/`
   reciente.

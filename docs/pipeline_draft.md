@@ -297,6 +297,15 @@ Reglas asociadas:
 Esta separación evita que 18 etiquetas con 30 ejemplos produzcan un modelo
 infradeterminado sin renunciar al codebook fino.
 
+> Actualización (09-11-2026): el chequeo se repitió con los 200 posts
+> anotados. El modelo fino de 18 marcos sigue infradeterminado: 17 de 18 marcos
+> no alcanzan ≥30 positivos en train y ≥5 en test. En el esquema grueso solo
+> `ethnoracial_prejudice` (30/12) y `no_frame` (70/22) cumplen; las otras 6
+> cabezas no. El piloto alcanza para un proof-of-concept binario de
+> `ethnoracial_prejudice`, no para las 8 cabezas. Ver
+> `Journal/Journal PLN. 15. 09-11-26.md` y la enmienda de
+> `docs/evaluation_protocol.md`.
+
 ### Cuántos posts faltan
 
 No hay un número único: depende de la prevalencia `p` del marco más raro que se
