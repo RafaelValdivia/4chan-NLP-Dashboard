@@ -152,12 +152,21 @@ sirve para comparaciones diseñadas de IA vs. humano.
 
 - `guideline_version`: versión del codebook (`v0.1` en este piloto).
 - `prompt_version`: versión del contrato de prompt (`v1`).
-- `prompt_sha256`: hash del template, registrado en el manifiesto de la tarea.
-- `model` y `provider`: se guardan en cada propuesta.
+- `prompt_sha256`: hash del template. Se imprime en el reporte de
+  `keklab annotate ai task`, pero **no se persiste** en el JSONL de tareas ni
+  en las propuestas. Hashea solo `PROMPT_TEMPLATE`, no el menú de marcos, el
+  menú de toxicidad ni el prompt renderizado.
+- `model` y `provider`: se guardan en cada propuesta, pero son autodeclarados
+  por el archivo; el flujo file-based no verifica qué modelo generó el texto.
 - Los IDs son prefijos SHA-256 deterministas:
   - `task_id = sha256(source, post_id, content_hash, guideline_version, prompt_version)`
   - `proposal_id = sha256(task_id, model, prompt_version)`
   - `review_id = sha256(proposal_id, reviewer)`
+- `proposal_id` identifica la tarea, el modelo y la versión de prompt, no el
+  contenido de la propuesta. Regenerar con el mismo modelo puede cambiar
+  etiquetas, toxicidad, confianza o rationale sin cambiar el ID.
+- `ReviewRecord` guarda las etiquetas y la toxicidad propuestas, pero no
+  `confidence`, `rationale`, `evidence` ni un hash del contenido propuesto.
 
 ## Limitaciones
 
@@ -169,14 +178,26 @@ sirve para comparaciones diseñadas de IA vs. humano.
   usarse para entrenar.
 - **Propuestas no son oro.** La calidad de la IA se mide después de la revisión
   humana; no se usa el acuerdo IA-humano como sustituto del juicio humano.
+- **Trazabilidad incompleta del prompt.** El hash del template no se guarda en
+  las tareas y solo cubre el texto del template. La versión `v1` se mantuvo
+  tras el cambio text-only, así que por sí sola no distingue ambos prompts.
+- **Trazabilidad incompleta de la propuesta.** El ID no incluye el contenido y
+  el review no conserva confianza, rationale ni evidencia. Para auditorías
+  estrictas hay que conservar los archivos de propuestas y comparar sus campos.
 - **Prevalencia.** Las muestras dirigidas enriquecen marcos raros; no estiman
   prevalencia. Solo la parte aleatoria sirve para eso.
 
 ## Estado del piloto
 
-- 200 posts en la muestra; 62 con oro (52 originales + 10 revisiones del
-  flujo AI).
-- 148 tareas de pre-anotación; 138 pendientes de revisión.
+- 200 posts en la muestra, los 200 con decisión humana registrada: 52
+  anotaciones originales + 148 revisiones del flujo AI.
+- 148 revisiones: 124 `accept`, 23 `edit`, 1 `skip`, 0 `reject`.
+- 199 registros de oro; `166273462` quedó como `skip` sin oro.
+- 0 propuestas pendientes de revisión.
 - Las propuestas se generaron con `provider=opencode`, `model=big-pickle`.
 - `229326221` fue aceptado con `ethnonationalism` antes de la corrección
-  text-only; su propuesta actual es `unclear` y requiere revisión.
+  text-only; su propuesta actual es `unclear`/tox 0 y requiere revisión.
+- `176409794` sigue en oro como `misogyny`/tox 1, pero su texto objetivo no
+  contiene misoginia; requiere revisión.
+- La auditoría de reproducibilidad y trazabilidad está documentada en
+  `Journal/Journal PLN. 15. 09-11-26.md`.
