@@ -14,7 +14,8 @@ from keklab.annotation.taxonomy import (
 def test_every_fine_frame_maps_to_a_coarse_head():
     assert set(FINE_TO_COARSE) == set(FRAME_LABELS)
     assert set(FINE_TO_COARSE.values()) == set(COARSE_HEADS)
-    assert len(COARSE_HEADS) == 8
+    assert len(COARSE_HEADS) == 7
+    assert "eugenics_ableism" not in COARSE_HEADS
 
 
 def test_collapse_frames_returns_canonical_order_and_deduplicates():
@@ -41,10 +42,10 @@ def test_collapse_requires_at_least_one_frame():
 
 def test_coarse_counts_cover_every_head():
     counts = coarse_counts(
-        [["conspiracy"], ["racism", "ableism"], ["none"]]
+        [["conspiracy"], ["racism", "misogyny"], ["none"]]
     )
     assert counts["conspiracy"] == 1
     assert counts["ethnoracial_prejudice"] == 1
-    assert counts["eugenics_ableism"] == 1
+    assert counts["gender_sexuality_prejudice"] == 1
     assert counts["no_frame"] == 1
     assert set(counts) == set(COARSE_HEADS)

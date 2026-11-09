@@ -14,8 +14,6 @@ FRAME_LABELS: tuple[str, ...] = (
     "islamophobia",
     "rusophobia",
     "sinophobia",
-    "eugenics",
-    "ableism",
     "misogyny",
     "transphobia",
     "homophobia",
@@ -28,6 +26,12 @@ FRAME_LABELS: tuple[str, ...] = (
 )
 
 EXCLUSIVE_LABELS: frozenset[str] = frozenset({"none", "unclear"})
+
+# Frames retired after the 200-post pilot (09-11-2026). Historical artifacts
+# still contain them; the loader drops them for backward compatibility. A set
+# that only contained retired labels collapses to `none`. Interactive editing
+# rejects them because `apply_frame_toggle` validates against `FRAME_LABELS`.
+RETIRED_FRAME_LABELS: frozenset[str] = frozenset({"eugenics", "ableism"})
 
 # Previous vocabulary names that still appear in annotations or external data.
 # They are rewritten on load so old files remain readable.
@@ -43,8 +47,6 @@ FRAME_DESCRIPTIONS: dict[str, str] = {
     "islamophobia": "Hostility or prejudice targeting Muslims/Islam.",
     "rusophobia": "Hostility or prejudice targeting Russians/Russia.",
     "sinophobia": "Hostility or prejudice targeting Chinese/China.",
-    "eugenics": "Advocacy of selective breeding, genetic hierarchy, sterilization or improving the gene pool.",
-    "ableism": "Prejudice, mockery or discrimination against disabled people or mental illness.",
     "misogyny": "Hostility, contempt or objectification toward women as a class; female inferiority or opposition to women's rights.",
     "transphobia": "Hostility, mockery or prejudice targeting trans people or denying their identity.",
     "homophobia": "Hostility, mockery or prejudice targeting gay or lesbian people.",
@@ -78,27 +80,6 @@ TARGETED_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
         "white nationalist",
         "white nationalism",
         "miscegenation",
-    ),
-    "eugenics": (
-        "eugenics",
-        "eugenic",
-        "gene pool",
-        "dysgenic",
-        "selective breeding",
-        "sterilization",
-        "sterilisation",
-        "sterilize",
-        "sterilise",
-    ),
-    "ableism": (
-        "ableism",
-        "ableist",
-        "retarded",
-        "retard",
-        "disabled",
-        "disability",
-        "autistic",
-        "mongoloid",
     ),
     "transphobia": (
         "transphobia",
@@ -143,12 +124,21 @@ FRAME_INDEX: dict[int, str] = {
 
 
 def normalize_frame_labels(labels: Iterable[str]) -> list[str]:
-    """Normalize, validate and de-duplicate frame labels (order-preserving)."""
+    """Normalize, validate and de-duplicate frame labels (order-preserving).
+
+    Labels retired after the pilot (`RETIRED_FRAME_LABELS`) are accepted for
+    backward compatibility with historical files but are dropped. If nothing
+    remains, the record collapses to `none`.
+    """
     normalized: list[str] = []
+    saw_retired = False
     for raw in labels:
         label = str(raw).strip().lower()
         label = FRAME_ALIASES.get(label, label)
         if not label:
+            continue
+        if label in RETIRED_FRAME_LABELS:
+            saw_retired = True
             continue
         if label not in FRAME_LABELS:
             valid = ", ".join(FRAME_LABELS)
@@ -157,6 +147,8 @@ def normalize_frame_labels(labels: Iterable[str]) -> list[str]:
             normalized.append(label)
 
     if not normalized:
+        if saw_retired:
+            return ["none"]
         raise ValueError("At least one frame label is required (use 'none' if no frame applies).")
 
     exclusive = [label for label in normalized if label in EXCLUSIVE_LABELS]

@@ -14,8 +14,8 @@ from keklab.annotation.labels import (
 )
 from keklab.annotation.proposal import TaskRecord
 
-GUIDELINE_VERSION = "v0.1"
-PROMPT_VERSION = "v1"
+GUIDELINE_VERSION = "v0.2"
+PROMPT_VERSION = "v2"
 PROVIDER = "opencode"
 MODEL = "big-pickle"
 
@@ -66,8 +66,16 @@ Task JSON:
 
 
 def prompt_sha256() -> str:
-    """Hash of the template body, used to detect silent prompt edits."""
-    return hashlib.sha256(PROMPT_TEMPLATE.encode("utf-8")).hexdigest()
+    """Hash of the prompt contract: template plus generated menus.
+
+    The frame and toxicity menus are rendered into the prompt, so they are
+    part of its semantics and must be covered by the hash. This replaces the
+    v1 hash, which covered only `PROMPT_TEMPLATE`.
+    """
+    payload = "\n".join(
+        [PROMPT_TEMPLATE, format_frame_menu(), _toxicity_menu()]
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def prompt_manifest() -> dict[str, object]:

@@ -468,7 +468,7 @@ def test_ai_subcommands_are_registered():
         ["annotate", "ai", "task", "--input", "s.jsonl", "--out", "t.jsonl"]
     )
     assert args.ai_command == "task"
-    assert args.guideline == "v0.1"
+    assert args.guideline == "v0.2"
 
     args = parser.parse_args(
         [

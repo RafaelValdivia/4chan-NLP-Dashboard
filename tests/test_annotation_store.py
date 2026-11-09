@@ -159,6 +159,21 @@ def test_load_annotations_aliases_legacy_antifeminism(tmp_path):
     assert loaded[0].frame_labels == ["conspiracy", "misogyny"]
 
 
+def test_load_annotations_migrates_retired_frames(tmp_path):
+    path = tmp_path / "annotations.jsonl"
+    row = make_annotation(frames=("conspiracy",)).model_dump(mode="json")
+    row["frame_labels"] = ["conspiracy", "ableism"]
+    path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+
+    loaded = load_annotations(path)
+    assert loaded[0].frame_labels == ["conspiracy"]
+
+    row["frame_labels"] = ["ableism"]
+    path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    loaded = load_annotations(path)
+    assert loaded[0].frame_labels == ["none"]
+
+
 def test_export_csv_has_base_and_one_hot_columns(tmp_path):
     records = [make_annotation(frames=("conspiracy", "misogyny"), toxicity=2)]
     text = export_csv(records)

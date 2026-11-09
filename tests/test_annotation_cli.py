@@ -161,7 +161,7 @@ def test_run_session_shows_frame_menu(tmp_path):
     assert "racism" in menu
     assert "transphobia" in menu
     assert "homophobia" in menu
-    assert "18. unclear" in menu
+    assert "16. unclear" in menu
 
 
 def make_record(post_id: str, round: int, frames: tuple[str, ...]) -> AnnotationRecord:
