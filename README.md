@@ -120,6 +120,10 @@ keklab annotate ai stats \
 El contrato completo, incluida la regla **text-only** (sin OP, quotes, asunto ni
 estrato de muestreo), está en `docs/ai_annotation_protocol.md`.
 
+Para un agente relevo, las instrucciones operativas están en
+`docs/handoff_llm_annotation.md` y el prompt vigente en
+`docs/prompts/annotation_prompt_v2.txt`.
+
 La configuración se selecciona con `--config`, la variable `KEKLAB_CONFIG` o
 `configs/default.yaml`, en ese orden. Las rutas relativas se resuelven contra la
 raíz del repositorio y las variables `${VAR}` se expanden desde el entorno.
