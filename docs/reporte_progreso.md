@@ -26,7 +26,7 @@ el plan de etiquetado plata y de comparación de modelos ya está definido.
 |---|---|
 | Fuente histórica | ROTLK `/pol/` 2016–2019; lectura en sitio del `.tar.zst`, sin copiarlo ni extraerlo. |
 | Fuente reciente | API de 4plebs, últimos 24 meses, con el mismo esquema y codebook. |
-| Períodos | `hist_2016_2019` vs `recent_2020_plus`, para comparar con los mismos clasificadores. |
+| Períodos | 2016-2019 vs 2020 en adelante, para comparar con los mismos clasificadores. |
 | Unidad de análisis | Post; agrupación por hilo. Split por `thread_id` para evitar fuga entre OP y respuestas. |
 | Partición | 60/20/20, semilla 13; test congelado y hasheado antes de entrenar. |
 | Eventos externos | Pizzagate, QAnon y Christchurch como hitos de comparación, no como etiquetas del modelo. |
@@ -37,17 +37,25 @@ el plan de etiquetado plata y de comparación de modelos ya está definido.
 |---|---|
 | Oro humano | 200 posts: 190 aleatorios + 10 dirigidos; los dirigidos solo entrenan/calibran. |
 | Interfaz | CLI de terminal; sin interfaz web ni herramienta externa. |
-| IA sobre el oro | Solo propone; nunca es oro sin revisión humana. Generación file-based, sin llamar a una API desde `keklab`. |
-| Texto permitido | Solo el post objetivo: sin OP, quotes, `subject` ni estrato de muestreo. Si no se entiende, `unclear`. |
-| Acuerdo | Self test-retest del ~20 % (40 posts); mide consistencia intra-anotador, no acuerdo inter-anotador. |
+| Unidad de clasificación | Solo el post objetivo: sin OP, quotes, `subject` ni estrato de muestreo. Si no se entiende, `unclear`. |
 | Plata | 5.000 posts aleatorios, semilla 17, etiquetados por `Qwen3-8B-Q4_K_M`; se confía en la plata sin revisión humana. |
 | Rol del oro | Diagnóstico externo del maestro; no entrena, corrige ni bloquea la plata. |
 
 ## Taxonomía de clasificación
 
+Reglas que gobiernan la taxonomía:
+
+| Regla | Decisión |
+|---|---|
+| Estructura | 16 marcos finos binarios multi-label; 7 cabezas gruesas derivadas. |
+| Toxicidad | Escala ordinal `0–3`, independiente de los marcos. |
+| `none` / `unclear` | Exclusivos con cualquier otro marco y entre sí. |
+| Prejuicio específico | Se añadió `rusophobia` y `sinophobia` por prevalencia en el corpus |
+| Género y sexualidad | Se optó por mantener`transphobia`, `homophobia` y `misogyny` como ejes independientes. |
+
 Cada marco y la toxicidad son ejes separados. Durante la clasificación se
-observó correlación alta entre toxicidad `3` y glorificación de la violencia. Se
-optó por mantener ambos aunque se superpongan, porque remiten a categorías
+observó correlación alta entre toxicidad 3 y glorificación de la violencia. Se
+optó por mantener ambos aunque se superpongan, ya que remiten a categorías
 semánticas distintas.
 
 | # | Marco | Definición |
@@ -69,19 +77,6 @@ semánticas distintas.
 | 15 | `none` | Ningún marco reconocible. |
 | 16 | `unclear` | Contexto insuficiente, truncamiento o ambigüedad genuina. |
 
-Reglas que gobiernan la taxonomía:
-
-| Regla | Decisión |
-|---|---|
-| Estructura | 16 marcos finos binarios multi-label; 7 cabezas gruesas derivadas. |
-| Toxicidad | Escala ordinal `0–3`, independiente de los marcos. |
-| `none` / `unclear` | Exclusivos con cualquier otro marco y entre sí. |
-| Prejuicio específico | Reemplaza a `ethnonationalism` / `racism` genéricos. |
-| Género y sexualidad | `transphobia` y `homophobia` son ejes independientes de `misogyny`. |
-| Superposición | `violence_glorification` y toxicidad `3` se conservan como categorías distintas. |
-| Retiros | `eugenics`, `ableism` y la cabeza `eugenics_ableism` se retiraron; los artefactos viejos se normalizan al cargar. |
-| Versiones | Codebook `v0.2` y prompt `v2`; el hash del prompt cubre plantilla y menús generados. |
-
 ### Toxicidad
 
 | Nivel | Definición |
@@ -95,13 +90,10 @@ Reglas que gobiernan la taxonomía:
 
 | Decisión | Valor adoptado |
 |---|---|
-| Soporte mínimo | ≥30 positivos en train y ≥5 en test por cabeza/marco; si no se cumple, se reporta como descriptivo. |
-| E0 | `text_raw` vs `text_clean`; la limpieza solo se adopta si mejora de forma consistente en dev. |
+| Expresiones regulares | El uso de regex es necesario para limpiar los posts de código html, citas a otros posts y otros artefactos que obstaculizan el procesamiento de lenguaje |
 | Modelos comparados | TF-IDF + LR, BoW + SVM, embeddings + lineal, BERT/RoBERTa, Laya, GLiClass y GLiNER. |
-| Ajuste | Hiperparámetros en dev; una sola evaluación final en test. |
 | Métricas | P/R/F1 por clase, macro y micro; bootstrap por hilo. Toxicidad: kappa cuadrática, MAE y matriz de confusión. |
 | Límite de la plata | La tabla principal mide imitación del maestro, no verdad; el oro de 200 posts es la referencia externa. |
-| Cómputo | GPU de 8 GB: encoders y modelos clásicos para volumen; LLM local para etiquetado y chatbot. |
 
 ## Producto y alcance
 
@@ -126,7 +118,6 @@ Reglas que gobiernan la taxonomía:
 | Dashboard | No iniciado | Backend analítico y UI. |
 | Chatbot | No iniciado | Tool calling y suite E5. |
 | Extracción estructurada | No iniciado | Integración de Laya/Gleaner/GLiNER. |
-
 En una frase: **la infraestructura, el oro y el plan de modelado están listos;
 el producto analítico y el chatbot todavía no.**
 
