@@ -239,3 +239,28 @@ pre-registrada.
   reciente.
 - Los marcos finos raros no serán modelables con este tamaño; quedan para
   análisis descriptivo o para muestreo dirigido posterior.
+
+### 11-11-2026: enmienda de clasificación plata
+
+Se agrega un segundo régimen de etiquetas para entrenar modelos a escala. La
+decisión está pre-registrada en `docs/silver_classification_protocol.md` y
+modifica el alcance del protocolo original, no sus métricas.
+
+- Se etiquetan **5.000 posts aleatorios** de ROTLK (semilla 17, ventana
+  `2016-06-01 → 2019-11-01`) con `Qwen3-8B-Q4_K_M` como maestro.
+- Esas etiquetas son **plata confiada**: no se revisan ni se corrigen
+  humanamente.
+- El oro de 200 posts deja de ser el conjunto de entrenamiento principal. Se
+  conserva solo como **diagnóstico externo** del maestro.
+- La tabla principal de resultados mide imitación del maestro, no verdad. La
+  comparación contra el oro se reporta en una tabla secundaria y no se usa para
+  seleccionar modelos ni hiperparámetros.
+- El split 60/20/20 por `thread_id` y la semilla 13 se mantienen. El test se
+  congela y se hashea antes de entrenar; los hilos ya asignados no se mueven.
+- Los umbrales de soporte y las métricas del protocolo original siguen
+  vigentes para la plata. Los marcos con pocos positivos se reportan como
+  descriptivos.
+
+Esta enmienda no borra ni reinterpreta el pre-registro del piloto: el piloto de
+200 sigue siendo el único conjunto con validación humana y su análisis de
+soporte sigue documentado arriba.

@@ -1,0 +1,4 @@
+90962c51b31cd98a5d39861d082541f92af6c1e246be58fe88031a401db58a15  gguf/qwen3-8b-q4_k_m.gguf
+76a5787a9c853d04db4ff214ae31fe2bd51aa15c8bef2fc886a3493f3c136dae  gguf/laya-q8_0.gguf
+5d61aff620f0413c90693b39b2321ecd2f4e8d9ab55cd0e87906e198c871b357  gguf/gliner-deberta-q8_0.gguf
+# Pending: laya-head.safetensors (compute sha256 when the file arrives)
