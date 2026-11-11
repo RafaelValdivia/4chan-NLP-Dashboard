@@ -107,6 +107,45 @@ def _cmd_ingest_canonicalize(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_ingest_l0(args: argparse.Namespace) -> int:
+    from keklab.ingest.l0 import MANIFEST_NAME, build_l0
+
+    manifest = build_l0(
+        args.input,
+        args.output,
+        workers=args.workers,
+        chunk_bytes=int(args.chunk_mb * 1024 * 1024),
+        resume=not args.no_resume,
+        max_chunks=args.max_chunks,
+    )
+    if args.json:
+        _print_json(manifest)
+    else:
+        totals = manifest["totals"]
+        print(f"status: {manifest['status']}")
+        print(f"chunks: {len(manifest['chunk_stats'])}/{manifest['chunks_total']}")
+        print(f"threads: {totals['threads']}")
+        print(f"posts: {totals['posts']}")
+        print(f"skipped_no_time: {totals['skipped_no_time']}")
+        print(f"skipped_bad_id: {totals['skipped_bad_id']}")
+        print(f"bad_json: {totals['bad_json']}")
+        print(f"elapsed_s: {manifest['elapsed_s']}")
+        print(f"manifest: {args.output}/{MANIFEST_NAME}")
+    return 0 if manifest["status"] == "done" else 1
+
+
+def _cmd_ingest_l0_stats(args: argparse.Namespace) -> int:
+    from keklab.ingest.l0 import l0_stats
+
+    stats = l0_stats(args.input)
+    if args.json:
+        _print_json(stats)
+    else:
+        for key, value in stats.items():
+            print(f"{key}: {value}")
+    return 0
+
+
 def _cmd_ingest_stats(args: argparse.Namespace) -> int:
     import duckdb
 
@@ -263,6 +302,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_stats.add_argument("input")
     p_stats.add_argument("--json", action="store_true")
     p_stats.set_defaults(func=_cmd_ingest_stats)
+
+    p_l0 = ingest_sub.add_parser(
+        "l0", help="Build the canonical L0 Parquet warehouse from NDJSON"
+    )
+    p_l0.add_argument("input")
+    p_l0.add_argument("output")
+    p_l0.add_argument("--workers", type=int, default=4)
+    p_l0.add_argument("--chunk-mb", type=int, default=1024)
+    p_l0.add_argument("--max-chunks", type=int, default=None)
+    p_l0.add_argument("--no-resume", action="store_true")
+    p_l0.add_argument("--json", action="store_true")
+    p_l0.set_defaults(func=_cmd_ingest_l0)
+
+    p_l0_stats = ingest_sub.add_parser(
+        "l0-stats", help="Summarize a built L0 warehouse"
+    )
+    p_l0_stats.add_argument("input")
+    p_l0_stats.add_argument("--json", action="store_true")
+    p_l0_stats.set_defaults(func=_cmd_ingest_l0_stats)
 
     # dedupe
     p_dedupe = sub.add_parser("dedupe", help="Deduplicate a posts parquet")
