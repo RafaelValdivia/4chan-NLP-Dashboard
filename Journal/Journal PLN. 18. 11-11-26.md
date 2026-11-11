@@ -151,6 +151,8 @@ funciona sin modelos reales.
 
 ## Estado de git
 
-Pendiente de commit al cierre de esta entrada. Los artefactos
-`data/annotations/tasks/`, `proposals/` y `reviews/` del piloto siguen sin
-trackear.
+La implementación quedó en `cd5e4af` (código y tests) y esta entrada junto con
+el pre-registro y `models/` en `2ea5fd8`. Ambas se empujaron a `master`; el
+remoto coincide con el local. Los artefactos `data/annotations/tasks/`,
+`proposals/` y `reviews/` del piloto siguen sin trackear: son intermedios
+regenerables y las propuestas de IA no son oro.
