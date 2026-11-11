@@ -194,5 +194,5 @@ reemplaza o complementa al YAML.
 ## Estado de git
 
 La corrección de código y sus tests quedaron en `44ed38f`. Esta entrada y la
-enmienda al protocolo quedaron en `92c2d20`. La muestra de 5.000 no se modificó:
+enmienda al protocolo quedaron en `df57494`. La muestra de 5.000 no se modificó:
 sigue siendo el archivo de `7ee0099`.
