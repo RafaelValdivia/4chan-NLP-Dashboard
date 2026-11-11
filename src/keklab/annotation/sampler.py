@@ -820,6 +820,7 @@ def sample_rotlk(
 
         samples: list[SamplePost] = []
         used_threads: set[str] = set()
+        used_hashes: set[str] = set()
 
         allocation = _allocate_counts(random_count, months_present, rng)
         for month, count in sorted(allocation.items()):
@@ -851,15 +852,17 @@ def sample_rotlk(
                 )
                 if target is None:
                     continue
-                used_threads.add(thread_id)
-                picked += 1
-                samples.append(
-                    build_sample(
-                        rows,
-                        _text(target.get("post_id")),
-                        {"reason": "random", "month": month, "thread_id": thread_id},
-                    )
+                sample = build_sample(
+                    rows,
+                    _text(target.get("post_id")),
+                    {"reason": "random", "month": month, "thread_id": thread_id},
                 )
+                if sample.content_hash in used_hashes:
+                    continue
+                used_threads.add(thread_id)
+                used_hashes.add(sample.content_hash)
+                picked += 1
+                samples.append(sample)
 
         # Deliberately keep a few empty/media-only posts if requested.
         empty_needed = max(0, include_empty - sum(
@@ -888,15 +891,17 @@ def sample_rotlk(
                 )
                 if target is None or _text(target.get("text_clean")).strip():
                     continue
-                used_threads.add(thread_id)
-                empty_needed -= 1
-                samples.append(
-                    build_sample(
-                        rows,
-                        _text(target.get("post_id")),
-                        {"reason": "random_empty", "thread_id": thread_id},
-                    )
+                sample = build_sample(
+                    rows,
+                    _text(target.get("post_id")),
+                    {"reason": "random_empty", "thread_id": thread_id},
                 )
+                if sample.content_hash in used_hashes:
+                    continue
+                used_threads.add(thread_id)
+                used_hashes.add(sample.content_hash)
+                empty_needed -= 1
+                samples.append(sample)
 
         # Targeted search over seed terms.
         if targeted_count > 0:
@@ -942,22 +947,24 @@ def sample_rotlk(
                     )
                     if target is None:
                         continue
-                    used_threads.add(thread_id)
-                    per_frame[frame] += 1
-                    samples.append(
-                        build_sample(
-                            rows,
-                            _text(target.get("post_id")),
-                            {
-                                "reason": "targeted",
-                                "frame": frame,
-                                "term": term,
-                                "month": _month_key(
-                                    _coerce_datetime(target.get("timestamp_utc"))
-                                ),
-                            },
-                        )
+                    sample = build_sample(
+                        rows,
+                        _text(target.get("post_id")),
+                        {
+                            "reason": "targeted",
+                            "frame": frame,
+                            "term": term,
+                            "month": _month_key(
+                                _coerce_datetime(target.get("timestamp_utc"))
+                            ),
+                        },
                     )
+                    if sample.content_hash in used_hashes:
+                        continue
+                    used_threads.add(thread_id)
+                    used_hashes.add(sample.content_hash)
+                    per_frame[frame] += 1
+                    samples.append(sample)
 
         return samples
     finally:
@@ -1316,6 +1323,7 @@ def sample_rotlk_stream(
     samples: list[SamplePost] = []
     used_posts: set[str] = set()
     used_threads: set[str] = set()
+    used_hashes: set[str] = set()
 
     # Random sample: preserve the per-month allocation used by the parquet
     # sampler, but read each month's reservoir from the single pass.
@@ -1342,9 +1350,12 @@ def sample_rotlk_stream(
                     break
                 if sample.post_id in used_posts or sample.thread_id in used_threads:
                     continue
+                if sample.content_hash in used_hashes:
+                    continue
                 samples.append(sample)
                 used_posts.add(sample.post_id)
                 used_threads.add(sample.thread_id)
+                used_hashes.add(sample.content_hash)
                 picked += 1
 
             if picked < need:
@@ -1353,6 +1364,59 @@ def sample_rotlk_stream(
                     picked,
                     need,
                     month,
+                )
+
+        # Copypasta across threads can leave a month short after dedupe.
+        # Redistribute the deficit over months that still have candidates.
+        if len(samples) < random_count:
+            shortfall = random_count - len(samples)
+            log.warning(
+                "Redistributing %d short random ROTLK posts across months",
+                shortfall,
+            )
+            pools = {
+                month: [
+                    candidate
+                    for candidate in eligible[month]
+                    if candidate.post_id not in used_posts
+                    and candidate.thread_id not in used_threads
+                    and candidate.content_hash not in used_hashes
+                ]
+                for month in sorted(eligible)
+            }
+            for pool in pools.values():
+                rng.shuffle(pool)
+
+            added = 0
+            while added < shortfall:
+                progressed = False
+                for month in sorted(pools):
+                    if added >= shortfall:
+                        break
+                    pool = pools[month]
+                    while pool:
+                        sample = pool.pop()
+                        if (
+                            sample.post_id in used_posts
+                            or sample.thread_id in used_threads
+                            or sample.content_hash in used_hashes
+                        ):
+                            continue
+                        samples.append(sample)
+                        used_posts.add(sample.post_id)
+                        used_threads.add(sample.thread_id)
+                        used_hashes.add(sample.content_hash)
+                        added += 1
+                        progressed = True
+                        break
+                if not progressed:
+                    break
+
+            if added < shortfall:
+                log.warning(
+                    "Only %d/%d random ROTLK posts sampled after redistribution",
+                    len(samples),
+                    random_count,
                 )
 
     # Targeted sample: collect candidates from the window, then take a
@@ -1382,8 +1446,11 @@ def sample_rotlk_stream(
                 sample = pools[frame].pop()
                 if sample.post_id in used_posts or sample.thread_id in used_threads:
                     continue
+                if sample.content_hash in used_hashes:
+                    continue
                 used_posts.add(sample.post_id)
                 used_threads.add(sample.thread_id)
+                used_hashes.add(sample.content_hash)
                 per_frame[frame] += 1
                 return sample
             return None
@@ -1438,9 +1505,12 @@ def sample_rotlk_stream(
                 break
             if sample.post_id in used_posts or sample.thread_id in used_threads:
                 continue
+            if sample.content_hash in used_hashes:
+                continue
             samples.append(sample)
             used_posts.add(sample.post_id)
             used_threads.add(sample.thread_id)
+            used_hashes.add(sample.content_hash)
             empty_added += 1
 
         if empty_added < include_empty:

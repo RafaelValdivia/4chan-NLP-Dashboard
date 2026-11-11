@@ -386,3 +386,39 @@ def test_stream_window_filter_does_not_require_max_timestamp(tmp_path):
 
     assert len(samples) == 1
     assert samples[0].post_id == "3"
+
+
+def test_stream_dedupes_copypasta_across_threads(tmp_path):
+    threads = [
+        _thread(10, _epoch(2021, 5, 1), "bump"),
+        _thread(11, _epoch(2021, 5, 2), "bump"),
+        _thread(12, _epoch(2021, 5, 3), "kek"),
+    ]
+    path = tmp_path / "threads.ndjson"
+    path.write_text(_ndjson(threads), encoding="utf-8")
+
+    samples = sample_rotlk_stream(path, random_count=3, targeted_count=0, seed=7)
+
+    assert len(samples) == 2
+    assert len({sample.content_hash for sample in samples}) == 2
+    ids = {sample.post_id for sample in samples}
+    assert "12" in ids
+    assert ids & {"10", "11"}
+
+
+def test_stream_redistributes_monthly_shortfall(tmp_path):
+    threads = [_thread(20, _epoch(2021, 6, 1), "only june post")]
+    for index in range(5):
+        threads.append(
+            _thread(30 + index, _epoch(2021, 7, 1 + index), f"july unique {index}")
+        )
+    path = tmp_path / "threads.ndjson"
+    path.write_text(_ndjson(threads), encoding="utf-8")
+
+    samples = sample_rotlk_stream(path, random_count=5, targeted_count=0, seed=7)
+
+    assert len(samples) == 5
+    assert len({sample.post_id for sample in samples}) == 5
+    assert {"2021-06", "2021-07"} == {
+        sample.stratum["month"] for sample in samples
+    }

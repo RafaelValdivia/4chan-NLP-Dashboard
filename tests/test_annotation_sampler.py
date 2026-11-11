@@ -198,6 +198,7 @@ def make_post_row(
     *,
     is_op: bool,
     quotes: list[str] | None = None,
+    content_hash: str | None = None,
 ) -> dict:
     return Post(
         post_id=post_id,
@@ -209,7 +210,7 @@ def make_post_row(
         text_clean=text,
         quotes=quotes or [],
         source="kek",
-        content_hash=f"hash-{post_id}",
+        content_hash=content_hash or f"hash-{post_id}",
         period="hist_2016_2019",
     ).model_dump()
 
@@ -240,6 +241,47 @@ def test_sample_rotlk_random_stratifies_by_month(tmp_path):
     assert {sample.source for sample in samples} == {"kek"}
     assert {sample.stratum["month"] for sample in samples} == {"2021-02", "2021-03"}
     assert all(sample.content_hash for sample in samples)
+
+
+def test_sample_rotlk_dedupes_identical_content(tmp_path):
+    rows = [
+        make_post_row(
+            "1",
+            "t1",
+            datetime(2021, 3, 10, tzinfo=timezone.utc),
+            "bump",
+            is_op=True,
+            content_hash="hash-bump",
+        ),
+        make_post_row(
+            "2",
+            "t2",
+            datetime(2021, 3, 11, tzinfo=timezone.utc),
+            "bump",
+            is_op=True,
+            content_hash="hash-bump",
+        ),
+        make_post_row(
+            "3",
+            "t3",
+            datetime(2021, 3, 12, tzinfo=timezone.utc),
+            "unique text",
+            is_op=True,
+        ),
+    ]
+    path = tmp_path / "duplicates.parquet"
+    write_parquet(pd.DataFrame(rows), path)
+
+    samples = sample_rotlk(
+        path,
+        random_count=3,
+        targeted_count=0,
+        months=1,
+        seed=7,
+    )
+
+    assert len(samples) == 2
+    assert len({sample.content_hash for sample in samples}) == 2
 
 
 def test_sample_rotlk_targeted_uses_seed_terms_and_context(tmp_path):

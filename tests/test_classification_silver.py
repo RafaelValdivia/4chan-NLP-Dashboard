@@ -20,7 +20,12 @@ from keklab.classification.silver import (
 NOW = datetime(2026, 11, 11, 12, 0, tzinfo=timezone.utc)
 
 
-def make_sample(post_id: str, *, text: str = "a secret plot by elites") -> SamplePost:
+def make_sample(
+    post_id: str,
+    *,
+    text: str = "a secret plot by elites",
+    content_hash: str | None = None,
+) -> SamplePost:
     return SamplePost(
         post_id=post_id,
         thread_id=f"t-{post_id}",
@@ -29,7 +34,7 @@ def make_sample(post_id: str, *, text: str = "a secret plot by elites") -> Sampl
         timestamp_utc=NOW,
         text_raw=text,
         text_clean=text,
-        content_hash=f"hash-{post_id}",
+        content_hash=content_hash or f"hash-{post_id}",
         stratum={"reason": "random", "month": "2018-01"},
     )
 
@@ -231,6 +236,62 @@ def test_dataset_reports_missing_samples():
 
     assert rows == []
     assert report["missing_samples"] == 1
+
+
+def test_dataset_dedupes_identical_content_across_threads():
+    tasks = [make_task("1", text="bump"), make_task("2", text="bump")]
+    annotations, _ = convert_raw_rows(
+        [
+            {"task_id": tasks[0].task_id, "payload": payload("1")},
+            {"task_id": tasks[1].task_id, "payload": payload("2")},
+        ],
+        tasks,
+        model="m",
+        provider="p",
+    )
+    samples = [
+        make_sample("1", text="bump", content_hash="hash-bump"),
+        make_sample("2", text="bump", content_hash="hash-bump"),
+    ]
+
+    rows, report = build_modeling_rows(
+        annotations,
+        samples,
+        split_assignment={"t-1": "train", "t-2": "test"},
+    )
+
+    assert report["rows_before_dedupe"] == 2
+    assert report["duplicate_groups"] == 1
+    assert report["duplicate_rows_removed"] == 1
+    assert report["duplicate_post_ids"] == ["2"]
+    assert report["rows"] == 1
+    assert rows[0]["post_id"] == "1"
+
+
+def test_dataset_keeps_duplicates_when_disabled():
+    tasks = [make_task("1", text="bump"), make_task("2", text="bump")]
+    annotations, _ = convert_raw_rows(
+        [
+            {"task_id": tasks[0].task_id, "payload": payload("1")},
+            {"task_id": tasks[1].task_id, "payload": payload("2")},
+        ],
+        tasks,
+        model="m",
+        provider="p",
+    )
+    samples = [
+        make_sample("1", text="bump", content_hash="hash-bump"),
+        make_sample("2", text="bump", content_hash="hash-bump"),
+    ]
+
+    rows, report = build_modeling_rows(
+        annotations,
+        samples,
+        dedupe_content=False,
+    )
+
+    assert len(rows) == 2
+    assert report["duplicate_rows_removed"] == 0
 
 
 def test_output_schema_requires_core_fields():
