@@ -34,6 +34,8 @@ from keklab.annotation.schema import (
 )
 from keklab.annotation.splits import (
     assign_thread_splits,
+    assign_thread_splits_stable,
+    read_split_manifest,
     split_counts,
     write_split_manifest,
 )
@@ -324,8 +326,12 @@ def _cmd_annotate_sample(args: argparse.Namespace) -> int:
                 seed=args.seed,
                 include_empty=args.include_empty,
                 limit_threads=getattr(args, "limit_threads", None),
+                window_start=getattr(args, "start", None),
+                window_end=getattr(args, "end", None),
             )
         elif parquet:
+            if getattr(args, "start", None) or getattr(args, "end", None):
+                raise ValueError("--start/--end are only supported with --dataset")
             samples = sample_rotlk(
                 parquet,
                 random_count=args.random,
@@ -411,11 +417,20 @@ def _parse_timestamp(value: str | None) -> datetime | None:
 
 def _cmd_annotate_split(args: argparse.Namespace) -> int:
     samples = load_samples(args.input)
-    assignment = assign_thread_splits(
-        samples,
-        ratios=(args.train, args.dev, args.test),
-        seed=args.seed,
-    )
+    existing = read_split_manifest(args.existing) if args.existing else {}
+    if existing:
+        assignment = assign_thread_splits_stable(
+            samples,
+            existing,
+            ratios=(args.train, args.dev, args.test),
+            seed=args.seed,
+        )
+    else:
+        assignment = assign_thread_splits(
+            samples,
+            ratios=(args.train, args.dev, args.test),
+            seed=args.seed,
+        )
     if not assignment:
         log.error("No threads found in the input sample.")
         return 1
@@ -425,6 +440,7 @@ def _cmd_annotate_split(args: argparse.Namespace) -> int:
         {
             "input": str(args.input),
             "output": str(args.out),
+            "existing": str(args.existing) if args.existing else None,
             "threads": len(assignment),
             "ratios": {
                 "train": args.train,
@@ -598,6 +614,14 @@ def add_annotate_parser(subparsers: Any) -> argparse.ArgumentParser:
     )
     p_sample.add_argument("--out", required=True)
     p_sample.add_argument("--months", type=int, default=24)
+    p_sample.add_argument(
+        "--start",
+        help="Exact window start (ISO 8601) for --source=rotlk streaming",
+    )
+    p_sample.add_argument(
+        "--end",
+        help="Exact window end (ISO 8601) for --source=rotlk streaming",
+    )
     p_sample.add_argument("--random", type=int, default=20)
     p_sample.add_argument("--targeted", type=int, default=10)
     p_sample.add_argument("--seed", type=int, default=13)
@@ -654,6 +678,10 @@ def add_annotate_parser(subparsers: Any) -> argparse.ArgumentParser:
     )
     p_split.add_argument("--input", required=True)
     p_split.add_argument("--out", required=True)
+    p_split.add_argument(
+        "--existing",
+        help="Existing split manifest; keeps assigned threads fixed",
+    )
     p_split.add_argument("--seed", type=int, default=13)
     p_split.add_argument("--train", type=float, default=0.6)
     p_split.add_argument("--dev", type=float, default=0.2)

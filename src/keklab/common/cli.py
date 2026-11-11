@@ -19,6 +19,7 @@ from typing import Any
 
 from keklab import __version__
 from keklab.annotation.cli import add_annotate_parser
+from keklab.classification.cli import add_classify_parser
 from keklab.common.config import dump_config, load_config, resolve_config_path
 from keklab.common.logging import configure_logging, get_logger
 from keklab.common.registry import (
@@ -299,6 +300,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     # annotation
     add_annotate_parser(sub)
+
+    # silver annotation and modeling datasets
+    add_classify_parser(sub)
 
     sub.add_parser("version", help="Print the version").set_defaults(func=_cmd_version)
 

@@ -70,3 +70,51 @@ def test_write_split_manifest_is_sorted_jsonl(tmp_path):
         {"thread_id": "t-a", "split": "train"},
         {"thread_id": "t-b", "split": "dev"},
     ]
+
+
+def test_assign_thread_splits_stable_keeps_existing_and_adds_new():
+    from keklab.annotation.splits import (
+        assign_thread_splits_stable,
+        read_split_manifest,
+    )
+
+    base = [make_sample(str(index)) for index in range(10)]
+    existing = assign_thread_splits(base, seed=3)
+
+    extra = [make_sample(str(index)) for index in range(10, 20)]
+    merged = assign_thread_splits_stable(
+        base + extra, existing, seed=3
+    )
+
+    assert {thread: merged[thread] for thread in existing} == existing
+    assert set(merged) == {sample.thread_id for sample in base + extra}
+    assert split_counts(merged) == {"train": 12, "dev": 4, "test": 4}
+
+
+def test_assign_thread_splits_stable_is_deterministic():
+    from keklab.annotation.splits import assign_thread_splits_stable
+
+    samples = [make_sample(str(index)) for index in range(10)]
+    first = assign_thread_splits_stable(samples, {}, seed=9)
+    second = assign_thread_splits_stable(samples, {}, seed=9)
+
+    assert first == second
+    assert split_counts(first) == {"train": 6, "dev": 2, "test": 2}
+
+
+def test_assign_thread_splits_stable_rejects_bad_existing_split():
+    from keklab.annotation.splits import assign_thread_splits_stable
+
+    with pytest.raises(ValueError, match="invalid split"):
+        assign_thread_splits_stable(
+            [make_sample("1")], {"t-1": "validation"}
+        )
+
+
+def test_read_split_manifest_roundtrip(tmp_path):
+    from keklab.annotation.splits import read_split_manifest
+
+    path = tmp_path / "splits.jsonl"
+    write_split_manifest({"t-b": "dev", "t-a": "train"}, path)
+
+    assert read_split_manifest(path) == {"t-a": "train", "t-b": "dev"}

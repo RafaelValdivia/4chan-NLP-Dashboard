@@ -16,3 +16,12 @@ data/cache/
 data/raw/fourplebs_cache/
 data/raw/fourplebs_archive/
 
+# Model weights (large, local only); keep models/README.md and SHA256SUMS
+models/gguf/*.gguf
+models/gguf/*.safetensors
+models/gguf/*.bin
+models/gguf/*.part
+
+# Raw LLM outputs and predictions can be regenerated from tasks + manifests
+data/classification/llm/raw/
+data/classification/predictions/

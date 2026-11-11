@@ -33,6 +33,7 @@ def build_tasks(
     gold: Iterable[AnnotationRecord] = (),
     guideline_version: str,
     prompt_version: str,
+    prompt_sha256: str | None = None,
     include_annotated: bool = False,
     start: int = 1,
     limit: int | None = None,
@@ -71,6 +72,7 @@ def build_tasks(
             sample,
             guideline_version=guideline_version,
             prompt_version=prompt_version,
+            prompt_sha256=prompt_sha256,
             created_utc=created_utc,
         )
         for sample in selected

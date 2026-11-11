@@ -95,6 +95,7 @@ class TaskRecord(BaseModel):
     context: SampleContext = Field(default_factory=SampleContext)
     guideline_version: str
     prompt_version: str
+    prompt_sha256: str | None = None
     created_utc: datetime
 
     @field_validator("task_id", "post_id", "thread_id", "content_hash")
@@ -111,6 +112,7 @@ class TaskRecord(BaseModel):
         *,
         guideline_version: str,
         prompt_version: str,
+        prompt_sha256: str | None = None,
         created_utc: datetime | None = None,
     ) -> "TaskRecord":
         return cls(
@@ -139,6 +141,7 @@ class TaskRecord(BaseModel):
             context=SampleContext(),
             guideline_version=guideline_version,
             prompt_version=prompt_version,
+            prompt_sha256=prompt_sha256,
             created_utc=created_utc or datetime.now(timezone.utc),
         )
 

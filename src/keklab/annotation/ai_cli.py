@@ -39,11 +39,13 @@ def _print_json(value: Any) -> None:
 def _cmd_ai_task(args: argparse.Namespace) -> int:
     samples = load_samples(args.input)
     gold = load_annotations(args.gold) if args.gold else []
+    prompt = prompt_manifest()
     tasks, report = build_tasks(
         samples,
         gold=gold,
         guideline_version=args.guideline,
         prompt_version=PROMPT_VERSION,
+        prompt_sha256=str(prompt["prompt_sha256"]),
         include_annotated=args.include_annotated,
         start=args.start,
         limit=args.limit,
@@ -58,7 +60,7 @@ def _cmd_ai_task(args: argparse.Namespace) -> int:
             "input": str(args.input),
             "gold": str(args.gold) if args.gold else None,
             "output": str(args.out),
-            "prompt": prompt_manifest(),
+            "prompt": prompt,
         }
     )
     if args.json:

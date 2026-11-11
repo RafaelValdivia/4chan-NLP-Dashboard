@@ -330,3 +330,59 @@ def test_stream_random_skips_quote_only_posts(tmp_path):
     )
 
     assert samples == []
+
+
+def test_stream_respects_explicit_window(tmp_path):
+    path = _write_tar_zst(
+        tmp_path / "threads.tar.zst",
+        {"threads.ndjson": _ndjson(THREADS)},
+    )
+
+    samples = sample_rotlk_stream(
+        path,
+        random_count=2,
+        targeted_count=0,
+        seed=7,
+        window_start="2021-02-01T00:00:00Z",
+        window_end="2021-03-31T23:59:59Z",
+    )
+
+    assert len(samples) == 2
+    timestamps = [sample.timestamp_utc for sample in samples]
+    assert all(
+        _epoch(2021, 2, 1) <= int(timestamp.timestamp()) <= _epoch(2021, 3, 31)
+        for timestamp in timestamps
+    )
+    assert {sample.stratum["month"] for sample in samples} <= {"2021-02", "2021-03"}
+
+
+def test_stream_rejects_inverted_window(tmp_path):
+    path = _write_tar_zst(
+        tmp_path / "threads.tar.zst",
+        {"threads.ndjson": _ndjson(THREADS)},
+    )
+
+    with pytest.raises(ValueError, match="window_start"):
+        sample_rotlk_stream(
+            path,
+            random_count=1,
+            targeted_count=0,
+            window_start="2021-03-01T00:00:00Z",
+            window_end="2021-02-01T00:00:00Z",
+        )
+
+
+def test_stream_window_filter_does_not_require_max_timestamp(tmp_path):
+    path = tmp_path / "threads.ndjson"
+    path.write_text(_ndjson(THREADS[1:2]), encoding="utf-8")
+
+    samples = sample_rotlk_stream(
+        path,
+        random_count=1,
+        targeted_count=0,
+        window_start="2021-01-01T00:00:00Z",
+        window_end="2021-12-31T23:59:59Z",
+    )
+
+    assert len(samples) == 1
+    assert samples[0].post_id == "3"

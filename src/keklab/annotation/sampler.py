@@ -1043,8 +1043,9 @@ def _match_frames(text: str) -> dict[str, str]:
 def _windowed(
     samples: Iterable[SamplePost],
     cutoff: datetime,
+    end: datetime | None = None,
 ) -> list[SamplePost]:
-    """Filter to samples strictly inside the [cutoff, ...] window.
+    """Filter to samples inside the [cutoff, end] window.
 
     Month keys are too coarse for the edge of the window: a post from the
     cutoff month can still predate the cutoff day. Compare real timestamps.
@@ -1056,8 +1057,11 @@ def _windowed(
             continue
         if timestamp.tzinfo is None:
             timestamp = timestamp.replace(tzinfo=timezone.utc)
-        if timestamp >= cutoff:
-            kept.append(sample)
+        if timestamp < cutoff:
+            continue
+        if end is not None and timestamp > end:
+            continue
+        kept.append(sample)
     return kept
 
 
@@ -1090,6 +1094,29 @@ def _thread_sample(
     return sample
 
 
+def _in_window(
+    timestamp: datetime | None,
+    start: datetime | None,
+    end: datetime | None,
+) -> bool:
+    """True when `timestamp` falls inside the optional [start, end] window."""
+    if timestamp is None:
+        return False
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    if start is not None and timestamp < start:
+        return False
+    if end is not None and timestamp > end:
+        return False
+    return True
+
+
+def _expected_months(start: datetime | None, end: datetime | None, months: int) -> int:
+    if start is not None and end is not None:
+        return max(1, (end.year - start.year) * 12 + (end.month - start.month) + 1)
+    return max(1, int(months))
+
+
 def sample_rotlk_stream(
     dataset: str | Path,
     *,
@@ -1099,6 +1126,8 @@ def sample_rotlk_stream(
     seed: int = 13,
     include_empty: int = 0,
     limit_threads: int | None = None,
+    window_start: datetime | str | None = None,
+    window_end: datetime | str | None = None,
 ) -> list[SamplePost]:
     """Sample random + targeted posts directly from a ROTLK NDJSON source.
 
@@ -1106,14 +1135,26 @@ def sample_rotlk_stream(
     `.tar.zst` archive containing NDJSON. A single pass keeps per-month
     reservoirs, so the archive is read in place and never extracted.
 
-    The 24-month window is anchored to the newest timestamp in the data, not
-    to the current date. Random samples are stratified by month; targeted
-    samples use the seed terms in ``TARGETED_SEARCH_TERMS`` and are filtered
-    to the same window.
+    By default the window is anchored to the newest timestamp in the data and
+    spans `months` months. `window_start`/`window_end` override that window
+    with exact ISO timestamps; this is what the 5,000-post silver sample uses.
+
+    Reservoirs are sized from the expected number of months, not from the
+    total sample size, so a 5,000-post request does not keep 5,000 candidates
+    per month in memory.
     """
     path = Path(dataset).expanduser()
     if not path.exists():
         raise FileNotFoundError(path)
+
+    start = _coerce_datetime(window_start) if window_start is not None else None
+    end = _coerce_datetime(window_end) if window_end is not None else None
+    if window_start is not None and start is None:
+        raise ValueError(f"Invalid window_start: {window_start!r}")
+    if window_end is not None and end is None:
+        raise ValueError(f"Invalid window_end: {window_end!r}")
+    if start is not None and end is not None and start > end:
+        raise ValueError("window_start must be <= window_end")
 
     rng = random.Random(seed)
     frames = list(TARGETED_SEARCH_TERMS)
@@ -1124,11 +1165,23 @@ def sample_rotlk_stream(
         for index, frame in enumerate(frames)
     }
 
+    expected_months = _expected_months(start, end, months)
+    # At least 64 candidates per month keeps small requests working when the
+    # dump covers fewer months than the nominal window; 2x the equal quota
+    # leaves room for the remainder. For 5,000 posts over 41 months this is
+    # ~244 per month instead of 5,000.
+    random_cap = max(
+        64, math.ceil(random_count / expected_months) * 2
+    ) if random_count > 0 else 0
+    empty_cap = max(
+        8, math.ceil(include_empty / expected_months) * 2
+    ) if include_empty > 0 else 0
+
     random_res: dict[str, _Reservoir] = defaultdict(
-        lambda: _Reservoir(random_count)
+        lambda: _Reservoir(random_cap)
     )
     empty_res: dict[str, _Reservoir] = defaultdict(
-        lambda: _Reservoir(include_empty)
+        lambda: _Reservoir(empty_cap)
     )
     target_res: dict[str, dict[str, _Reservoir]] = {
         frame: defaultdict(lambda: _Reservoir(max_per_frame))
@@ -1160,7 +1213,7 @@ def sample_rotlk_stream(
             if target_post is not None:
                 target_id = _text(target_post.get("no"))
                 timestamp = _coerce_datetime(target_post.get("time"))
-                if target_id and timestamp is not None:
+                if target_id and _in_window(timestamp, start, end):
                     month = _month_key(timestamp)
                     stratum = {"reason": "random", "month": month}
                     random_res[month].offer(
@@ -1175,7 +1228,7 @@ def sample_rotlk_stream(
             if target_post is not None:
                 target_id = _text(target_post.get("no"))
                 timestamp = _coerce_datetime(target_post.get("time"))
-                if target_id and timestamp is not None:
+                if target_id and _in_window(timestamp, start, end):
                     month = _month_key(timestamp)
                     stratum = {"reason": "random_empty", "month": month}
                     empty_res[month].offer(
@@ -1202,7 +1255,7 @@ def sample_rotlk_stream(
 
                 target_id = _text(post.get("no"))
                 timestamp = _coerce_datetime(post.get("time"))
-                if not target_id or timestamp is None:
+                if not target_id or not _in_window(timestamp, start, end):
                     continue
 
                 month = _month_key(timestamp)
@@ -1239,21 +1292,25 @@ def sample_rotlk_stream(
         time.monotonic() - started,
     )
 
-    if max_epoch is None:
+    if max_epoch is None and start is None:
         log.warning("No timestamps found in %s", path)
         return []
 
-    max_ts = _coerce_datetime(max_epoch)
-    if max_ts is None:
-        log.warning("Could not interpret dataset timestamp in %s", path)
-        return []
+    if start is not None:
+        cutoff = start
+        window_end = end
+    else:
+        max_ts = _coerce_datetime(max_epoch)
+        if max_ts is None:
+            log.warning("Could not interpret dataset timestamp in %s", path)
+            return []
+        cutoff = _cutoff(months, max_ts)
+        window_end = end
 
-    cutoff = _cutoff(months, max_ts)
     log.info(
-        "ROTLK window: %s -> %s (%d months)",
+        "ROTLK window: %s -> %s",
         cutoff.isoformat(),
-        max_ts.isoformat(),
-        months,
+        window_end.isoformat() if window_end else "(latest in dump)",
     )
 
     samples: list[SamplePost] = []
@@ -1264,7 +1321,7 @@ def sample_rotlk_stream(
     # sampler, but read each month's reservoir from the single pass.
     if random_count > 0:
         eligible = {
-            month: _windowed(reservoir.items, cutoff)
+            month: _windowed(reservoir.items, cutoff, window_end)
             for month, reservoir in random_res.items()
             if month != "unknown"
         }
@@ -1312,6 +1369,7 @@ def sample_rotlk_stream(
                     for sample in by_month[month].items
                 ),
                 cutoff,
+                window_end,
             )
             rng.shuffle(candidates)
             pools[frame] = candidates
@@ -1372,6 +1430,7 @@ def sample_rotlk_stream(
                 for sample in empty_res[month].items
             ),
             cutoff,
+            window_end,
         )
         rng.shuffle(candidates)
         for sample in candidates:

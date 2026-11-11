@@ -16,6 +16,11 @@ CACHE_DIR = Path(os.environ.get("KEKLAB_CACHE_DIR", DATA_DIR / "cache"))
 CONFIGS_DIR = Path(os.environ.get("KEKLAB_CONFIGS_DIR", PROJECT_ROOT / "configs"))
 REPORTS_DIR = Path(os.environ.get("KEKLAB_REPORTS_DIR", PROJECT_ROOT / "reports"))
 
+# Local model weights are never versioned. `KEKLAB_MODELS_DIR` lets the target
+# machine point at a different disk without changing the commands.
+MODELS_DIR = Path(os.environ.get("KEKLAB_MODELS_DIR", PROJECT_ROOT / "models" / "gguf"))
+DEFAULT_LLM_MODEL = MODELS_DIR / "qwen3-8b-q4_k_m.gguf"
+
 ROTLK_DATASET_ENV = "KEKLAB_ROTLK_DATASET"
 
 
