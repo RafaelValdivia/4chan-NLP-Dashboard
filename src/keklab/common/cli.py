@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from keklab import __version__
+from keklab.analytics.cli import add_analytics_parser
 from keklab.annotation.cli import add_annotate_parser
 from keklab.classification.cli import add_classify_parser
 from keklab.common.config import dump_config, load_config, resolve_config_path
@@ -361,6 +362,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     # silver annotation and modeling datasets
     add_classify_parser(sub)
+
+    # shared analytics
+    add_analytics_parser(sub)
 
     sub.add_parser("version", help="Print the version").set_defaults(func=_cmd_version)
 

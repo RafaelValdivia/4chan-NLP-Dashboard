@@ -136,6 +136,12 @@ def test_overview_filters_by_window(service):
     assert result["data"]["threads"] == 2
 
 
+def test_overview_reports_timestamps_in_utc(service):
+    result = service.overview(Filters())
+    assert result["data"]["first_post"].endswith("+00:00")
+    assert result["data"]["last_post"].endswith("+00:00")
+
+
 def test_volume_series_groups_by_month(service):
     result = service.volume_series(Filters())
     periods = {row["period"]: row["posts"] for row in result["data"]}

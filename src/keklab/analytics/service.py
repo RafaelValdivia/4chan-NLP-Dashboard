@@ -52,20 +52,32 @@ class AnalyticsService:
         l0_glob: str | Path | None = None,
         l0_table: str = "l0",
         predictions_table: str | None = None,
+        predictions_glob: str | Path | None = None,
         events: EventTimeline | None = None,
         run_id: str | None = None,
         seed: int = 13,
         bootstrap_resamples: int = 1000,
     ) -> None:
         self.con = con
+        # DuckDB renders TIMESTAMPTZ in the session timezone; the dashboard
+        # and the journal speak in UTC.
+        try:
+            con.execute("SET TimeZone='UTC'")
+        except Exception:  # pragma: no cover - depends on the connection
+            pass
         self._posts_source = (
             f"read_parquet('{_quote(str(Path(l0_glob).expanduser()))}')"
             if l0_glob is not None
             else _safe_identifier(l0_table)
         )
-        self._predictions_table = (
-            _safe_identifier(predictions_table) if predictions_table else None
-        )
+        if predictions_glob is not None:
+            self._predictions_source: str | None = (
+                f"read_parquet('{_quote(str(Path(predictions_glob).expanduser()))}')"
+            )
+        elif predictions_table:
+            self._predictions_source = _safe_identifier(predictions_table)
+        else:
+            self._predictions_source = None
         self.events = events or EventTimeline()
         self.run_id = run_id or uuid.uuid4().hex[:12]
         self.seed = seed
@@ -74,13 +86,15 @@ class AnalyticsService:
     # -- infrastructure ---------------------------------------------------
 
     def has_predictions(self) -> bool:
-        if self._predictions_table is None:
+        if self._predictions_source is None:
             return False
-        rows = self.con.execute(
-            "SELECT count(*) FROM duckdb_tables() WHERE table_name = ?",
-            [self._predictions_table],
-        ).fetchall()
-        return bool(rows and rows[0][0])
+        try:
+            self.con.execute(
+                f"SELECT 1 FROM {self._predictions_source} LIMIT 0"
+            ).fetchall()
+        except Exception:
+            return False
+        return True
 
     def _run(self, sql: str, params: Sequence[Any] | None = None) -> list[tuple]:
         return self.con.execute(sql, list(params or [])).fetchall()
@@ -90,14 +104,14 @@ class AnalyticsService:
 
     def _scoped_join(self, filters: Filters) -> tuple[str, str, list[Any]]:
         """FROM/WHERE for posts joined with predictions."""
-        if self._predictions_table is None:
+        if self._predictions_source is None:
             raise RuntimeError("No predictions table configured")
         combined_sql, combined_params = where_clause(
             list(filters.post_predicates("p")) + list(filters.prediction_predicates("q"))
         )
         return (
             f"FROM {self._posts_source} p "
-            f"JOIN {self._predictions_table} q ON q.post_id = p.post_id",
+            f"JOIN {self._predictions_source} q ON q.post_id = p.post_id",
             combined_sql,
             combined_params,
         )
