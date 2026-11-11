@@ -192,8 +192,42 @@ def _flush(
     import pandas as pd
 
     frame = pd.DataFrame.from_records(rows, columns=list(COLUMNS))
+    # Quote ids overflow INT32 in the wild (troll posts quote huge numbers)
+    # and DuckDB infers INT32 for Python lists, so the ids travel as text
+    # and are cast to BIGINT[] in SQL.
+    frame["quotes"] = [
+        ",".join(str(quote) for quote in quotes) for quotes in frame["quotes"]
+    ]
+
     con.execute("DELETE FROM l0")
-    con.execute("INSERT INTO l0 SELECT * FROM frame")
+    con.execute(
+        """
+        INSERT INTO l0
+        SELECT post_id,
+               thread_id,
+               timestamp_utc,
+               is_op,
+               text_clean,
+               subject,
+               content_hash64,
+               country,
+               CASE
+                   WHEN quotes = '' THEN []::BIGINT[]
+                   ELSE list_transform(
+                       str_split(quotes, ','),
+                       lambda value: TRY_CAST(value AS BIGINT)
+                   )
+               END,
+               greentext_count,
+               quote_count,
+               thread_depth,
+               thread_cite_count,
+               thread_greentext_count,
+               source,
+               period
+        FROM frame
+        """
+    )
 
     path = out_dir / f"month={month}" / f"part-{chunk_id:05d}.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)

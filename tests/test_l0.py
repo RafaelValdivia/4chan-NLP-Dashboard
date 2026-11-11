@@ -47,6 +47,16 @@ THREADS = [
             {"no": 5, "resto": 0, "com": "no timestamp"},
         ]
     },
+    {
+        "posts": [
+            {
+                "no": 6,
+                "time": _epoch(2018, 5, 5),
+                "resto": 0,
+                "com": ">>191919191919191 troll",
+            },
+        ]
+    },
 ]
 
 
@@ -79,16 +89,20 @@ def test_build_l0_writes_partitioned_posts(tmp_path):
     manifest = build_l0(source, out, workers=1, chunk_bytes=180, resume=False)
 
     assert manifest["status"] == "done"
-    assert manifest["totals"]["posts"] == 4
-    assert manifest["totals"]["threads"] == 4
+    assert manifest["totals"]["posts"] == 5
+    assert manifest["totals"]["threads"] == 5
     assert manifest["totals"]["skipped_no_time"] == 1
     assert len(manifest["chunk_stats"]) == manifest["chunks_total"]
 
     rows, columns = _read(out)
     by_id = {row[columns.index("post_id")]: dict(zip(columns, row)) for row in rows}
 
-    assert set(by_id) == {1, 2, 3, 4}
-    assert {by_id[value]["month"] for value in by_id} == {"2016-06", "2017-01"}
+    assert set(by_id) == {1, 2, 3, 4, 6}
+    assert {by_id[value]["month"] for value in by_id} == {
+        "2016-06",
+        "2017-01",
+        "2018-05",
+    }
 
     op = by_id[1]
     reply = by_id[2]
@@ -105,6 +119,10 @@ def test_build_l0_writes_partitioned_posts(tmp_path):
     assert op["source"] == "kek"
     assert op["period"] == "hist_2016_2019"
 
+    # Quote ids above INT32 must survive the round trip as BIGINT.
+    assert by_id[6]["quotes"] == [191919191919191]
+    assert reply["subject"] is None
+
 
 def test_build_l0_is_resumable(tmp_path):
     source = _write_fixture(tmp_path)
@@ -116,7 +134,7 @@ def test_build_l0_is_resumable(tmp_path):
 
     second = build_l0(source, out, workers=1, chunk_bytes=180, resume=True)
     assert second["status"] == "done"
-    assert second["totals"]["posts"] == 4
+    assert second["totals"]["posts"] == 5
     assert len(second["chunk_stats"]) == second["chunks_total"]
 
     files = list(out.glob("month=*/*.parquet"))
@@ -129,8 +147,8 @@ def test_build_l0_rerun_does_not_duplicate_posts(tmp_path):
 
     build_l0(source, out, workers=1, chunk_bytes=180, resume=False)
     stats = l0_stats(out)
-    assert stats["posts"] == 4
+    assert stats["posts"] == 5
 
     again = build_l0(source, out, workers=1, chunk_bytes=180, resume=True)
     assert again["status"] == "done"
-    assert l0_stats(out)["posts"] == 4
+    assert l0_stats(out)["posts"] == 5
