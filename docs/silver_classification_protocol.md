@@ -42,8 +42,21 @@ Verificación obligatoria:
 
 - 5.000 posts únicos y 5.000 hilos únicos;
 - 0 textos vacíos y 0 `content_hash` duplicados;
-- rango temporal exacto y cobertura de los 41 meses;
+- rango temporal exacto y cobertura de los 42 meses;
 - archivo reproducible con la misma semilla.
+
+**Enmienda 11-11-2026.** La muestra de 5.000 se generó antes de corregir el
+sampler y contiene **27 grupos con `content_hash` repetido: 91 filas, 64
+sobrantes**. Son posts degenerados de 1–10 caracteres (`bump`, `kek`, `?`,
+`RARE`, `Thoughts?`) repetidos en hilos distintos.
+
+Como el etiquetado ya estaba en curso en otra máquina, la muestra **se congela
+y no se remuestrea**. La garantía de unicidad de contenido se traslada al
+export del dataset: `build_modeling_rows` colapsa cada grupo por `content_hash`
+y conserva un representante determinista (el `post_id` numérico menor),
+reportando `duplicate_groups` y `duplicate_rows_removed`. El split sigue siendo
+por `thread_id`, ya sin texto duplicado entre train y test. La corrección del
+sampler aplica a muestreos futuros, no a este archivo.
 
 ## Etiquetas
 
