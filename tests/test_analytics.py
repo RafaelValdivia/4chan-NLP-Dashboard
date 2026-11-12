@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from keklab.analytics import (
     EventTimeline,
     Filters,
     cluster_bootstrap_share,
+    previous_window,
     wilson_interval,
 )
 from keklab.annotation.taxonomy import collapse_frames
@@ -280,3 +282,140 @@ def test_cluster_bootstrap_resamples_threads():
     interval = cluster_bootstrap_share([(1, 10), (0, 10), (0, 10)], resamples=200, seed=1)
     assert interval.point == pytest.approx(1 / 30)
     assert interval.low <= interval.point <= interval.high
+
+
+def test_previous_window_shifts_twelve_months_back():
+    active = Filters(start="2019-11-05", end="2019-11-30")
+    baseline = previous_window(active)
+
+    assert baseline is not None
+    assert baseline.start == "2018-11-05"
+    assert baseline.end == "2019-11-04"
+
+
+def test_previous_window_needs_a_start():
+    assert previous_window(Filters(end="2019-11-30")) is None
+
+
+def test_compare_with_previous_derives_the_baseline(service):
+    active = Filters(start="2016-07-01", end="2016-07-31")
+    result = service.compare_with_previous(active, months=1)
+
+    rows = {row["label"]: row for row in result["data"]}
+    assert rows["conspiracy"]["baseline_count"] == 1
+    assert rows["conspiracy"]["target_count"] == 0
+    assert result["provenance"]["months"] == 1
+    assert result["provenance"]["baseline"]["filters"]["start"] == "2016-06-01"
+
+
+def test_compare_with_previous_warns_without_start(service):
+    result = service.compare_with_previous(Filters())
+
+    assert result["data"] == []
+    assert any("fecha de inicio" in warning for warning in result["provenance"]["warnings"])
+
+
+def test_run_uses_and_closes_a_cursor():
+    class FakeCursor:
+        def __init__(self):
+            self.closed = False
+            self.calls = []
+
+        def execute(self, sql, params):
+            self.calls.append((sql, params))
+            return self
+
+        def fetchall(self):
+            return [(1,)]
+
+        def close(self):
+            self.closed = True
+
+    class FakeConnection:
+        def __init__(self):
+            self.cursors = []
+            self.direct_queries = []
+
+        def execute(self, sql, params=None):
+            self.direct_queries.append(sql)
+            return self
+
+        def cursor(self):
+            cursor = FakeCursor()
+            self.cursors.append(cursor)
+            return cursor
+
+    connection = FakeConnection()
+    service = AnalyticsService(connection, l0_table="l0")
+    assert service._run("SELECT 1") == [(1,)]
+    assert len(service.con.cursors) == 1
+    assert service.con.cursors[0].closed is True
+    assert all("SET GLOBAL" in sql for sql in connection.direct_queries)
+
+
+def test_concurrent_queries_do_not_share_a_call(con):
+    service = AnalyticsService(con, l0_table="l0")
+    barrier = threading.Barrier(2)
+    results: list[int] = []
+    errors: list[BaseException] = []
+
+    def worker() -> None:
+        barrier.wait()
+        try:
+            rows = service._run("SELECT count(*) FROM range(50000000)")
+            results.append(int(rows[0][0]))
+        except BaseException as exc:  # noqa: BLE001 - the test records it
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    assert errors == []
+    assert results == [50_000_000, 50_000_000]
+
+
+def test_hive_partitioned_source_prunes_by_month(tmp_path):
+    connection = duckdb.connect()
+    connection.execute(
+        """
+        CREATE TABLE l0 AS SELECT
+            1::BIGINT AS post_id, 100::BIGINT AS thread_id,
+            TIMESTAMPTZ '2016-06-15 12:00:00+00' AS timestamp_utc,
+            TRUE AS is_op, 'june'::VARCHAR AS text_clean
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO l0 VALUES
+        (2, 100, TIMESTAMPTZ '2016-07-15 12:00:00+00', FALSE, 'july')
+        """
+    )
+    for month in ("2016-06", "2016-07"):
+        target = tmp_path / f"month={month}" / "part-00000.parquet"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        connection.execute(
+            f"COPY (SELECT * FROM l0 WHERE strftime(timestamp_utc, '%Y-%m') = '{month}') "
+            f"TO '{target}' (FORMAT PARQUET)"
+        )
+    connection.close()
+
+    service = AnalyticsService(
+        duckdb.connect(), l0_glob=str(tmp_path / "month=*" / "*.parquet")
+    )
+    where_sql, params = service._posts_where(Filters(start="2016-06-15", end="2016-06-20"))
+
+    assert "p.month >= ?" in where_sql
+    assert "p.month <= ?" in where_sql
+    assert params[-2:] == ["2016-06", "2016-06"]
+    assert service.overview(Filters(start="2016-06-15", end="2016-06-20"))["data"]["posts"] == 1
+    service.close()
+
+
+def test_plain_table_does_not_reference_the_month_column(con):
+    service = AnalyticsService(con, l0_table="l0")
+    where_sql, _ = service._posts_where(Filters(start="2016-06-01", end="2016-06-30"))
+    assert "month" not in where_sql
+

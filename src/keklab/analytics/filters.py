@@ -6,8 +6,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
-from datetime import date, datetime
+from calendar import monthrange
+from dataclasses import dataclass, fields, replace
+from datetime import date, datetime, timedelta
 from typing import Any, Iterable
 
 FRAME_LEVELS: tuple[str, ...] = ("fine", "coarse")
@@ -68,6 +69,20 @@ class Filters:
     def with_overrides(self, **overrides: Any) -> "Filters":
         clean = {key: value for key, value in overrides.items() if value is not None}
         return replace(self, **clean)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any] | None) -> "Filters":
+        """Build filters from a JSON payload, ignoring unknown keys."""
+        if not payload:
+            return cls()
+        known = {field.name for field in fields(cls)}
+        return cls(
+            **{
+                key: value
+                for key, value in payload.items()
+                if key in known and value is not None
+            }
+        )
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -133,6 +148,21 @@ class Filters:
             predicates.append((f"CAST({alias}.thread_id AS VARCHAR) IN ({placeholders})", list(self.thread_ids)))
         return predicates
 
+    def month_predicates(self, alias: str = "p") -> list[tuple[str, list[Any]]]:
+        """Predicates on the hive partition column `month` (YYYY-MM).
+
+        They only make sense when the source is a Parquet glob partitioned as
+        `month=YYYY-MM/`: on a plain table the column does not exist. The
+        service adds them only for hive-partitioned sources, so DuckDB can
+        prune files before reading them.
+        """
+        predicates: list[tuple[str, list[Any]]] = []
+        if self.start:
+            predicates.append((f"{alias}.month >= ?", [self.start[:7]]))
+        if self.end:
+            predicates.append((f"{alias}.month <= ?", [self.end[:7]]))
+        return predicates
+
     def prediction_predicates(self, alias: str = "q") -> list[tuple[str, list[Any]]]:
         """Predicates that need the L1 prediction columns."""
         predicates: list[tuple[str, list[Any]]] = []
@@ -161,3 +191,30 @@ def where_clause(
     if not fragments:
         return "", []
     return " AND ".join(fragments), params
+
+
+def shift_months(value: date, months: int) -> date:
+    """Move a date by whole months, clamping the day to the target month."""
+    month_index = value.year * 12 + (value.month - 1) + months
+    year, month = divmod(month_index, 12)
+    month += 1
+    day = min(value.day, monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def previous_window(filters: Filters, months: int = 12) -> Filters | None:
+    """The window of `months` right before the active one.
+
+    Returns None when the active window has no explicit start, because there
+    is nothing to shift.
+    """
+    if not filters.start:
+        return None
+    start = date.fromisoformat(filters.start)
+    end = date.fromisoformat(filters.end) if filters.end else start
+    baseline_end = start - timedelta(days=1)
+    baseline_start = shift_months(start, -months)
+    return filters.with_overrides(
+        start=baseline_start.isoformat(),
+        end=baseline_end.isoformat(),
+    )

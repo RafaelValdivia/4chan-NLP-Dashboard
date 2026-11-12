@@ -337,7 +337,7 @@ _KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("graficar", ("gráfico", "grafico", "grafica", "serie", "evolución", "evolucion", "curva")),
     ("extraer_entidades", ("entidad", "entidades", "menciones", "quién", "quien", "menciona")),
     ("clasificar", ("clasifica", "etiqueta", "etiquetar", "toxicidad de", "que marco")),
-    ("resumir", ("resumen", "resume", "resumir", "de que trata", "qué trata")),
+    ("resumir", ("resumen", "resume", "resumir", "resum", "de que trata", "qué trata")),
     ("consultar", ("cuántos", "cuantas", "cuanto", "cuanta", "hay", "posts", "hilos", "consulta")),
 )
 

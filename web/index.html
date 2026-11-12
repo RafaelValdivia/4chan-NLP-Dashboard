@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Analítica · 4chan /pol/</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+    <script src="/static/plotly.min.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">/pol/</span>
+        <div>
+          <h1>Analítica</h1>
+          <p>4chan · corpus histórico y ventana reciente</p>
+        </div>
+      </div>
+      <nav id="nav" class="nav" aria-label="Secciones"></nav>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div id="status" class="status" aria-live="polite"></div>
+
+        <form id="filters" class="filters">
+          <fieldset>
+            <legend>Ventana</legend>
+            <label class="field">
+              <span>Desde</span>
+              <input type="date" name="start" />
+            </label>
+            <label class="field">
+              <span>Hasta</span>
+              <input type="date" name="end" />
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Lectura</legend>
+            <label class="field">
+              <span>Nivel de marco</span>
+              <select name="level">
+                <option value="fine">16 marcos finos</option>
+                <option value="coarse">7 cabezas</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Denominador</span>
+              <select name="denominator">
+                <option value="all">Todos los posts</option>
+                <option value="labeled">Solo posts predichos</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Granularidad</span>
+              <select name="granularity">
+                <option value="month">Mes</option>
+                <option value="week">Semana</option>
+                <option value="day">Día</option>
+              </select>
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Filtros</legend>
+            <div class="field">
+              <span>Origen</span>
+              <div id="sources" class="checks">
+                <label class="check"><input type="checkbox" value="kek" /> kek</label>
+                <label class="check"><input type="checkbox" value="fourplebs" /> fourplebs</label>
+              </div>
+            </div>
+
+            <details class="frames-details" open>
+              <summary><span id="frames-summary">Marcos</span></summary>
+              <div id="frames-list" class="frames-list"></div>
+            </details>
+
+            <div class="two-cols">
+              <label class="field">
+                <span>Toxicidad mín.</span>
+                <input type="number" name="toxMin" min="0" max="3" step="1" />
+              </label>
+              <label class="field">
+                <span>Toxicidad máx.</span>
+                <input type="number" name="toxMax" min="0" max="3" step="1" />
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Buscar texto</span>
+              <input type="search" name="q" placeholder="QAnon, pizza, Rusia…" />
+            </label>
+
+            <label class="check">
+              <input type="checkbox" name="dropEmpty" />
+              <span>Excluir posts sin texto</span>
+            </label>
+          </fieldset>
+
+          <button type="button" id="reset" class="button ghost">Limpiar filtros</button>
+        </form>
+
+        <p class="sidebar-note">
+          Los filtros viven en la URL: copiar el enlace reproduce la misma
+          ventana. Sin conexión, Plotly se sirve desde el propio servidor.
+        </p>
+      </aside>
+
+      <main id="app" class="app" tabindex="-1"></main>
+    </div>
+
+    <noscript>
+      <div class="notice notice-error">
+        Esta aplicación necesita JavaScript para consultar el corpus.
+      </div>
+    </noscript>
+
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>

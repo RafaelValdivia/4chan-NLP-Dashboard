@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from keklab.analytics.events import Event, EventTimeline
-from keklab.analytics.filters import Filters
+from keklab.analytics.filters import Filters, previous_window
 from keklab.analytics.service import AnalyticsService
 from keklab.analytics.stats import (
     MIN_CELL,
@@ -24,5 +24,6 @@ __all__ = [
     "MIN_CELL",
     "attenuation_warning",
     "cluster_bootstrap_share",
+    "previous_window",
     "wilson_interval",
 ]

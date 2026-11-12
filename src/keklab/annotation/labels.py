@@ -27,6 +27,35 @@ FRAME_LABELS: tuple[str, ...] = (
 
 EXCLUSIVE_LABELS: frozenset[str] = frozenset({"none", "unclear"})
 
+# Spanish display names for the web UI. The English identifiers stay canonical
+# everywhere else (files, SQL, predictions); only the presentation layer uses
+# these.
+FRAME_LABELS_ES: dict[str, str] = {
+    "conspiracy": "Conspiración",
+    "ethnonationalism": "Etnonacionalismo",
+    "racism": "Racismo",
+    "antisemitism": "Antisemitismo",
+    "islamophobia": "Islamofobia",
+    "rusophobia": "Rusofobia",
+    "sinophobia": "Sinofobia",
+    "misogyny": "Misoginia",
+    "transphobia": "Transfobia",
+    "homophobia": "Homofobia",
+    "institutional_distrust": "Desconfianza institucional",
+    "violence_glorification": "Glorificación de la violencia",
+    "accelerationism": "Aceleracionismo",
+    "meta_topic": "Meta del board",
+    "none": "Ninguno",
+    "unclear": "Incierto",
+}
+
+TOXICITY_LABELS_ES: dict[int, str] = {
+    0: "Neutro",
+    1: "Leve",
+    2: "Explícita",
+    3: "Amenaza o incitación",
+}
+
 # Frames retired after the 200-post pilot (09-11-2026). Historical artifacts
 # still contain them; the loader drops them for backward compatibility. A set
 # that only contained retired labels collapses to `none`. Interactive editing

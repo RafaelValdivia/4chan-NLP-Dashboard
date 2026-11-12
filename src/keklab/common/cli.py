@@ -20,6 +20,7 @@ from typing import Any
 from keklab import __version__
 from keklab.analytics.cli import add_analytics_parser
 from keklab.annotation.cli import add_annotate_parser
+from keklab.api.cli import add_api_parser
 from keklab.classification.cli import add_classify_parser
 from keklab.common.config import dump_config, load_config, resolve_config_path
 from keklab.common.logging import configure_logging, get_logger
@@ -365,6 +366,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     # shared analytics
     add_analytics_parser(sub)
+
+    # HTTP backend for the dashboard and the chatbot
+    add_api_parser(sub)
 
     sub.add_parser("version", help="Print the version").set_defaults(func=_cmd_version)
 

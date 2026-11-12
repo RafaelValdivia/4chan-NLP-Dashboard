@@ -14,8 +14,11 @@ tenacity>=8.0
 # Formal (grammar artifact; parser not implemented yet)
 lark>=1.1
 
+# API (FastAPI + Uvicorn): backend HTTP del panel y del chatbot
+fastapi>=0.110
+uvicorn>=0.30
+
 # Dashboard
-streamlit>=1.45
 plotly>=5.24
 
 # Optional: seeds.py also seeds these when present

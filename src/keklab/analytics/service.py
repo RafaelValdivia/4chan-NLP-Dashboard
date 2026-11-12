@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 from keklab.analytics.events import Event, EventTimeline
-from keklab.analytics.filters import Filters, where_clause
+from keklab.analytics.filters import Filters, previous_window, where_clause
 from keklab.analytics.stats import (
     attenuation_warning,
     cluster_bootstrap_distribution,
@@ -59,24 +59,32 @@ class AnalyticsService:
     ) -> None:
         self.con = con
         # DuckDB renders TIMESTAMPTZ in the session timezone; the dashboard
-        # and the journal speak in UTC.
+        # and the journal speak in UTC. GLOBAL makes cursors inherit it.
         try:
-            con.execute("SET TimeZone='UTC'")
+            con.execute("SET GLOBAL TimeZone='UTC'")
         except Exception:  # pragma: no cover - depends on the connection
-            pass
+            try:
+                con.execute("SET TimeZone='UTC'")
+            except Exception:
+                pass
+        self._posts_hive = l0_glob is not None and "month=" in str(l0_glob)
         self._posts_source = (
-            f"read_parquet('{_quote(str(Path(l0_glob).expanduser()))}')"
+            f"read_parquet('{_quote(str(Path(l0_glob).expanduser()))}', hive_partitioning=true)"
             if l0_glob is not None
             else _safe_identifier(l0_table)
         )
+        self._predictions_hive = (
+            predictions_glob is not None and "month=" in str(predictions_glob)
+        )
         if predictions_glob is not None:
             self._predictions_source: str | None = (
-                f"read_parquet('{_quote(str(Path(predictions_glob).expanduser()))}')"
+                f"read_parquet('{_quote(str(Path(predictions_glob).expanduser()))}', hive_partitioning=true)"
             )
         elif predictions_table:
             self._predictions_source = _safe_identifier(predictions_table)
         else:
             self._predictions_source = None
+        self._predictions_available: bool | None = None
         self.events = events or EventTimeline()
         self.run_id = run_id or uuid.uuid4().hex[:12]
         self.seed = seed
@@ -84,30 +92,58 @@ class AnalyticsService:
 
     # -- infrastructure ---------------------------------------------------
 
+    def close(self) -> None:
+        """Close the underlying connection (the API owns it per request)."""
+        try:
+            self.con.close()
+        except Exception:  # pragma: no cover - already closed
+            pass
+
     def has_predictions(self) -> bool:
         if self._predictions_source is None:
             return False
+        if self._predictions_available is not None:
+            return self._predictions_available
+        cursor = self.con.cursor()
         try:
-            self.con.execute(
+            cursor.execute(
                 f"SELECT 1 FROM {self._predictions_source} LIMIT 0"
             ).fetchall()
+            self._predictions_available = True
         except Exception:
-            return False
-        return True
+            self._predictions_available = False
+        finally:
+            cursor.close()
+        return bool(self._predictions_available)
 
     def _run(self, sql: str, params: Sequence[Any] | None = None) -> list[tuple]:
-        return self.con.execute(sql, list(params or [])).fetchall()
+        # A cursor per query keeps two concurrent requests from sharing the
+        # same DuckDB call, which is what raised `ResourceInUseException` in
+        # the previous Streamlit dashboard.
+        cursor = self.con.cursor()
+        try:
+            return cursor.execute(sql, list(params or [])).fetchall()
+        finally:
+            cursor.close()
 
     def _posts_where(self, filters: Filters) -> tuple[str, list[Any]]:
-        return where_clause(filters.post_predicates("p"))
+        predicates = list(filters.post_predicates("p"))
+        if self._posts_hive:
+            predicates.extend(filters.month_predicates("p"))
+        return where_clause(predicates)
 
     def _scoped_join(self, filters: Filters) -> tuple[str, str, list[Any]]:
         """FROM/WHERE for posts joined with predictions."""
         if self._predictions_source is None:
             raise RuntimeError("No predictions table configured")
-        combined_sql, combined_params = where_clause(
-            list(filters.post_predicates("p")) + list(filters.prediction_predicates("q"))
+        predicates = list(filters.post_predicates("p")) + list(
+            filters.prediction_predicates("q")
         )
+        if self._posts_hive:
+            predicates.extend(filters.month_predicates("p"))
+        if self._predictions_hive:
+            predicates.extend(filters.month_predicates("q"))
+        combined_sql, combined_params = where_clause(predicates)
         return (
             f"FROM {self._posts_source} p "
             f"JOIN {self._predictions_source} q ON q.post_id = p.post_id",
@@ -554,16 +590,17 @@ class AnalyticsService:
             params,
         )
 
+        post_where_sql, post_params = self._posts_where(filters)
         post_rows = self._run(
             f"""
             SELECT strftime(p.timestamp_utc, '{_PERIOD_FORMATS[granularity]}') AS bucket,
                    count(*) AS posts
             FROM {self._posts_source} p
-            {f'WHERE {self._posts_where(filters)[0]}' if self._posts_where(filters)[0] else ''}
+            {f'WHERE {post_where_sql}' if post_where_sql else ''}
             GROUP BY bucket
             ORDER BY bucket
             """,
-            self._posts_where(filters)[1],
+            post_params,
         )
         posts_by_period = {row[0]: int(row[1]) for row in post_rows}
         labeled_rows = self._run(
@@ -747,6 +784,46 @@ class AnalyticsService:
                 },
             ),
         }
+
+    def compare_with_previous(
+        self,
+        filters: Filters,
+        *,
+        months: int = 12,
+        level: str = "fine",
+        denominator: str = "all",
+    ) -> dict[str, Any]:
+        """Compare the active window against the `months` before it.
+
+        The baseline is derived from the active start, so the UI does not have
+        to compute date arithmetic. Without an explicit start there is nothing
+        to shift: the answer is empty and carries a warning.
+        """
+        baseline = previous_window(filters, months=months)
+        if baseline is None:
+            return {
+                "data": [],
+                "provenance": self._provenance(
+                    filters,
+                    n=0,
+                    denominator=0,
+                    warnings=[
+                        "Definí una fecha de inicio para comparar con la ventana previa"
+                    ],
+                    extra={
+                        "baseline": None,
+                        "target": filters.as_dict(),
+                        "months": months,
+                        "level": level,
+                        "denominator_mode": denominator,
+                    },
+                ),
+            }
+        result = self.compare(
+            baseline, filters, level=level, denominator=denominator
+        )
+        result["provenance"]["months"] = months
+        return result
 
     # -- events -----------------------------------------------------------
 

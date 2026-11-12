@@ -19,6 +19,16 @@ COARSE_HEADS: tuple[str, ...] = (
     "no_frame",
 )
 
+COARSE_HEADS_ES: dict[str, str] = {
+    "conspiracy": "Conspiración",
+    "ethnoracial_prejudice": "Prejuicio etnoracial",
+    "gender_sexuality_prejudice": "Prejuicio de género y sexualidad",
+    "institutional_distrust": "Desconfianza institucional",
+    "violence_acceleration": "Violencia y aceleración",
+    "meta_topic": "Meta del board",
+    "no_frame": "Sin marco",
+}
+
 # Every fine frame maps to exactly one coarse head. A post can still activate
 # several heads when it carries several fine frames.
 FINE_TO_COARSE: dict[str, str] = {
