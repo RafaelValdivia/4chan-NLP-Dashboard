@@ -558,18 +558,23 @@ def l0_stats(out_dir: str | Path) -> dict[str, Any]:
 
     root = Path(out_dir).expanduser()
     pattern = _quote_path(root / "month=*" / "*.parquet")
-    rows = duckdb.sql(
-        f"""
-        SELECT count(*) AS posts,
-               count(DISTINCT thread_id) AS threads,
-               count(*) FILTER (WHERE is_op) AS op_posts,
-               count(DISTINCT content_hash64) AS unique_hashes,
-               count(DISTINCT month) AS months,
-               min(timestamp_utc) AS first_post,
-               max(timestamp_utc) AS last_post
-        FROM read_parquet('{pattern}', hive_partitioning = true)
-        """
-    ).fetchall()
+    connection = duckdb.connect()
+    try:
+        connection.execute("SET TimeZone='UTC'")
+        rows = connection.execute(
+            f"""
+            SELECT count(*) AS posts,
+                   count(DISTINCT thread_id) AS threads,
+                   count(*) FILTER (WHERE is_op) AS op_posts,
+                   count(DISTINCT content_hash64) AS unique_hashes,
+                   count(DISTINCT month) AS months,
+                   min(timestamp_utc) AS first_post,
+                   max(timestamp_utc) AS last_post
+            FROM read_parquet('{pattern}', hive_partitioning = true)
+            """
+        ).fetchall()
+    finally:
+        connection.close()
     row = rows[0]
     stats = {
         "posts": int(row[0]),

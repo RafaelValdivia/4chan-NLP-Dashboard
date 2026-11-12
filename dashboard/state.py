@@ -110,6 +110,7 @@ class FilterState:
     toxicity_min: int | None = None
     toxicity_max: int | None = None
     query: str | None = None
+    min_text_length: int | None = None
 
     def to_filters(self) -> Filters:
         return Filters(
@@ -121,6 +122,7 @@ class FilterState:
             toxicity_min=self.toxicity_min,
             toxicity_max=self.toxicity_max,
             query=self.query,
+            min_text_length=self.min_text_length,
         )
 
 
@@ -199,6 +201,17 @@ def read_sidebar() -> FilterState:
     query = st.sidebar.text_input("Buscar texto", value="", key="query")
     query = query.strip() or None
 
+    drop_empty = st.sidebar.checkbox(
+        "Excluir posts sin texto",
+        value=False,
+        key="drop_empty",
+        help=(
+            "El corpus tiene ~6 %% de posts cuyo texto limpio queda vacío "
+            "(respuestas de una palabra, bumps). Apagado, cuentan en el "
+            "denominador."
+        ),
+    )
+
     return FilterState(
         start=start.isoformat() if start else None,
         end=end.isoformat() if end else None,
@@ -210,6 +223,7 @@ def read_sidebar() -> FilterState:
         toxicity_min=None if toxicity[0] == 0 else toxicity[0],
         toxicity_max=None if toxicity[1] == 3 else toxicity[1],
         query=query,
+        min_text_length=1 if drop_empty else None,
     )
 
 

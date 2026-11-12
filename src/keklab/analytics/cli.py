@@ -111,15 +111,23 @@ def _cmd_analytics_toxicity(args: argparse.Namespace) -> int:
 
 def _cmd_analytics_series(args: argparse.Namespace) -> int:
     service = _build_service(args)
-    return _print(
-        args,
-        service.frame_series(
-            _filters(args),
-            granularity=args.granularity,
-            level=args.level,
-            denominator=args.denominator,
-        ),
-    )
+    if service.has_predictions():
+        return _print(
+            args,
+            service.frame_series(
+                _filters(args),
+                granularity=args.granularity,
+                level=args.level,
+                denominator=args.denominator,
+            ),
+        )
+    # Without L1 there are no frame shares to plot, but the volume series is
+    # still real: report it instead of an empty answer.
+    result = service.volume_series(_filters(args), args.granularity)
+    result["provenance"]["warnings"] = list(
+        result["provenance"].get("warnings", [])
+    ) + ["Sin predicciones: se muestra el volumen, no cuotas de marcos"]
+    return _print(args, result)
 
 
 def _cmd_analytics_search(args: argparse.Namespace) -> int:
