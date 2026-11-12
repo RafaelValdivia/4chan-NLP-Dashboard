@@ -12,6 +12,8 @@ src/keklab/
   formal/    schema, cleaning, normalize, markup_regex, features, GLC
   ingest/    kek_loader, fourplebs_client, sample, dedupe
   annotation/ labels, schema, store, sampler, agreement, cli
+  analytics/  filters, stats, events, service, cli (backend compartido)
+dashboard/    panel Streamlit y herramientas del chat
 tests/       suite de pytest
 configs/     configuración YAML
 docs/        notas del pipeline y codebook de anotación
@@ -22,7 +24,7 @@ Journal/     bitácora del proyecto
 
 ```bash
 python -m venv ~/PyVenvs/NNnPLN
-~/PyVenvs/NNnPLN/bin/python -m pip install -e ".[dev,ingest,formal]"
+~/PyVenvs/NNnPLN/bin/python -m pip install -e ".[dev,ingest,formal,dashboard]"
 ```
 
 Sin instalación editable también se puede ejecutar con:
@@ -127,6 +129,49 @@ Para un agente relevo, las instrucciones operativas están en
 La configuración se selecciona con `--config`, la variable `KEKLAB_CONFIG` o
 `configs/default.yaml`, en ese orden. Las rutas relativas se resuelven contra la
 raíz del repositorio y las variables `${VAR}` se expanden desde el entorno.
+
+## Almacén canónico (L0)
+
+L0 es la copia consultable del dump histórico: una fila por post, en Parquet
+partitioned por mes, sin `raw_html` y con `content_hash64`. Vive en el disco
+externo, no en el repositorio.
+
+```bash
+# el dump se extrae una vez; el constructor lo lee por rangos de bytes
+zstd -dc ../pol_0616-1119_labeled.tar.zst | tar -x pol_062016-112019_labeled.ndjson
+
+keklab ingest l0 <ndjson> <salida> --workers 4 --chunk-mb 512
+keklab ingest l0-stats <salida>          # contrastar disco contra manifiesto
+```
+
+La construcción es reanudable: `_l0_manifest.json` guarda los conteos por
+trozo. Importante: el manifiesto hay que contrastarlo con lo que hay en disco.
+
+## Analítica y panel
+
+`keklab.analytics` es la fuente única de los números: el panel y el chatbot
+llaman al mismo servicio, así que no pueden contradecirse.
+
+```bash
+keklab analytics overview --l0 '<glob l0>'
+keklab analytics frames --l0 '<glob l0>' --predictions <tabla|parquet> --level fine
+keklab analytics toxicity --l0 '<glob l0>' --predictions <parquet>
+keklab analytics series --l0 '<glob l0>' --granularity month
+keklab analytics search --l0 '<glob l0>' --query 'QAnon'
+keklab analytics events
+```
+
+```bash
+streamlit run dashboard/app.py
+```
+
+El panel tiene siete secciones (Resumen, Marcos, Toxicidad, Línea de tiempo,
+Explorar, Calidad y Chat) y el chat expone cinco herramientas sobre el mismo
+servicio. Cada respuesta lleva procedencia: `n`, denominador, cobertura,
+`run_id` y avisos. Las cuotas se acompañan de intervalos de Wilson y de un
+bootstrap por hilo.
+
+El detalle está en `docs/analytics.md` y `docs/dashboard.md`.
 
 ## Tests
 
