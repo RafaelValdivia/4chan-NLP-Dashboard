@@ -53,6 +53,42 @@ pierde ninguna fila.
 La lección: **el manifiesto no alcanza, hay que contrastarlo con el disco**.
 `ingest l0-stats` es la verificación que faltaba.
 
+### Verificación final
+
+`keklab ingest l0-stats` contrasta el manifiesto con lo que hay en disco:
+
+```text
+posts: 134529233        threads: 3397911         op_posts: 3397911
+unique_hashes: 113561056   months: 42
+first_post: 2016-06-30T03:14:20+00:00
+last_post:  2019-11-01T10:15:36+00:00
+parts_written: 465      parts_on_disk: 465
+posts_match_manifest: True   threads_match_manifest: True
+parts_match_manifest: True   ok: True
+```
+
+Lo que dice el almacén:
+
+| Métrica | Valor |
+|---|---:|
+| Posts | 134.529.233 |
+| Hilos | 3.397.911 |
+| Posts de OP | 3.397.911 (uno por hilo, exacto) |
+| Hashes de contenido únicos | 113.561.056 (84,4 %) |
+| Meses | 42 (2016-06 → 2019-11) |
+| Partes | 465 |
+| Tamaño en disco | 8,4 GB |
+| Tiempo de construcción | 3.321 s (55 min, 4 workers) |
+| JSON inválido / posts saltados | 0 / 0 |
+
+El 15,6 % de posts repetidos es el phenomenon que ya se conocía: respuestas
+de una palabra ("bump", "kek") repetidas en hilos distintos. El corpus tiene
+**7.997.480 posts con texto limpio vacío (5,9 %)**: el panel lo avisa y
+ofrece excluirlos del denominador.
+
+La primera semana de julio de 2016 trae 3,7 M de posts y noviembre de 2016
+trae 5,0 M, el mes más denso del corpus, el de Pizzagate.
+
 ### Cambios de entorno
 
 - **DuckDB 2.0.0**: `relation.fetchone()` ya no existe (usar `fetchall()`), y
@@ -125,17 +161,33 @@ predicciones y muestran volumen. No inventan cuotas.
 - `extraer_entidades` es extracción léxica por diccionario curado, no NER.
 - No se corrió el self test-retest de 40 posts del oro.
 
+## Verificación del panel sobre el corpus real
+
+El servicio responde sobre los 134,5 M posts:
+
+```text
+keklab analytics overview --l0 '<glob>'   → 30 s
+keklab analytics search --query 'QAnon'   → 25 s (escaneo completo)
+keklab analytics series --granularity month → volumen por mes
+```
+
+Sin L1, `series` devuelve el volumen en lugar de cuotas y lo dice en un aviso:
+el panel no inventa números.
+
 ## Estado de git
 
 - `583506e` · `204f17c` · `66dc453`: L0 (constructor, citas BIGINT, parts
   únicos).
+- `72ac717`: el verificador contrasta manifiesto y disco.
 - `b0b6cc6` · `730f67d` · `fd969e8`: capa de analítica y CLI.
-- `17e69f0`: panel y herramientas del chat.
+- `17e69f0` · `663d12b`: panel y herramientas del chat.
+- `702675e`: almacén de L1.
+- `7c6c7ca`: dedupe de contenido en el sampler de 4plebs.
 - `44ed38f` · `df57494` · `fbc0ffd`: deduplicación de contenido, journal 19.
 
 ## Siguiente paso
 
-1. Verificar L0 en disco contra el manifiesto y anotar los números finales.
-2. Cuando termine la plata, exportar el dataset y aplicar el modelo sobre L0
+1. Cuando termine la plata, exportar el dataset y aplicar el modelo sobre L0
    para producir L1; el panel ya lo lee.
-3. Descargar la ventana reciente de 4plebs y compararla con la histórica.
+2. Descargar la ventana reciente de 4plebs y compararla con la histórica.
+3. Cerrar el self test-retest de 40 posts del oro.
