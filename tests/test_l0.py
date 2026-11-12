@@ -154,6 +154,34 @@ def test_build_l0_rerun_does_not_duplicate_posts(tmp_path):
     assert l0_stats(out)["posts"] == 5
 
 
+def test_l0_stats_contrasts_the_manifest_with_the_disk(tmp_path):
+    source = _write_fixture(tmp_path)
+    out = tmp_path / "l0"
+
+    build_l0(source, out, workers=1, chunk_bytes=180, resume=False)
+    stats = l0_stats(out)
+
+    assert stats["posts_match_manifest"] is True
+    assert stats["threads_match_manifest"] is True
+    assert stats["parts_match_manifest"] is True
+    assert stats["ok"] is True
+    assert stats["manifest_posts"] == stats["posts"]
+
+
+def test_l0_stats_detects_a_missing_part(tmp_path):
+    source = _write_fixture(tmp_path)
+    out = tmp_path / "l0"
+
+    build_l0(source, out, workers=1, chunk_bytes=180, resume=False)
+    victim = sorted(out.glob("month=*/*.parquet"))[0]
+    victim.unlink()
+
+    stats = l0_stats(out)
+
+    assert stats["parts_match_manifest"] is False
+    assert stats["ok"] is False
+
+
 def test_build_l0_keeps_every_row_when_a_month_is_flushed_twice(tmp_path):
     """A chunk that empties the same month twice must not overwrite itself."""
     source = _write_fixture(tmp_path)

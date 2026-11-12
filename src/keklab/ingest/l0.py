@@ -263,6 +263,7 @@ def _process_chunk(
     buffers: dict[str, list[tuple[Any, ...]]] = defaultdict(list)
     stats = {
         "threads": 0,
+        "threads_written": 0,
         "posts": 0,
         "skipped_no_time": 0,
         "skipped_bad_id": 0,
@@ -316,6 +317,8 @@ def _process_chunk(
 
                 stats["threads"] += 1
                 rows, thread_stats = thread_rows(thread)
+                if thread_stats["posts"]:
+                    stats["threads_written"] += 1
                 stats["posts"] += thread_stats["posts"]
                 stats["skipped_no_time"] += thread_stats["skipped_no_time"]
                 stats["skipped_bad_id"] += thread_stats["skipped_bad_id"]
@@ -369,6 +372,7 @@ def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
 def _aggregate(manifest: dict[str, Any]) -> None:
     totals = {
         "threads": 0,
+        "threads_written": 0,
         "posts": 0,
         "skipped_no_time": 0,
         "skipped_bad_id": 0,
@@ -404,6 +408,7 @@ def _new_manifest(
         "status": "running",
         "totals": {
             "threads": 0,
+            "threads_written": 0,
             "posts": 0,
             "skipped_no_time": 0,
             "skipped_bad_id": 0,
@@ -543,7 +548,12 @@ def build_l0(
 
 
 def l0_stats(out_dir: str | Path) -> dict[str, Any]:
-    """Query the built L0 warehouse and return corpus-level counts."""
+    """Query the built L0 warehouse and return corpus-level counts.
+
+    The manifest is the source of truth of the build, so its totals are
+    compared against what is actually on disk: a part that overwrote
+    another one leaves the manifest correct and the warehouse short.
+    """
     import duckdb
 
     root = Path(out_dir).expanduser()
@@ -561,7 +571,7 @@ def l0_stats(out_dir: str | Path) -> dict[str, Any]:
         """
     ).fetchall()
     row = rows[0]
-    return {
+    stats = {
         "posts": int(row[0]),
         "threads": int(row[1]),
         "op_posts": int(row[2]),
@@ -570,3 +580,27 @@ def l0_stats(out_dir: str | Path) -> dict[str, Any]:
         "first_post": row[5].isoformat() if row[5] else None,
         "last_post": row[6].isoformat() if row[6] else None,
     }
+
+    manifest = _read_manifest(root / MANIFEST_NAME)
+    if manifest:
+        expected_posts = int(manifest.get("totals", {}).get("posts", 0))
+        expected_threads = int(
+            manifest.get("totals", {}).get("threads_written")
+            or manifest.get("totals", {}).get("threads", 0)
+        )
+        parts_written = len(manifest.get("parts_written", []))
+        parts_on_disk = len(list(root.glob("month=*/*.parquet")))
+        stats["manifest_status"] = manifest.get("status")
+        stats["manifest_posts"] = expected_posts
+        stats["manifest_threads"] = expected_threads
+        stats["parts_written"] = parts_written
+        stats["parts_on_disk"] = parts_on_disk
+        stats["posts_match_manifest"] = expected_posts == stats["posts"]
+        stats["threads_match_manifest"] = expected_threads == stats["threads"]
+        stats["parts_match_manifest"] = parts_written == parts_on_disk
+        stats["ok"] = bool(
+            stats["posts_match_manifest"]
+            and stats["threads_match_manifest"]
+            and stats["parts_match_manifest"]
+        )
+    return stats
