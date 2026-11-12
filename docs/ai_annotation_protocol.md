@@ -152,11 +152,14 @@ sirve para comparaciones diseñadas de IA vs. humano.
 
 - `guideline_version`: versión del codebook (`v0.2` vigente; el piloto de 200 se
   anotó bajo `v0.1`).
-- `prompt_version`: versión del contrato de prompt (`v2`).
+- `prompt_version`: versión del contrato de prompt (`v3` vigente; el piloto de
+  200 se anotó bajo `v1`/`v2`).
 - `prompt_sha256`: hash del contrato completo. Se imprime en el reporte de
-  `keklab annotate ai task`, pero **no se persiste** en el JSONL de tareas ni
-  en las propuestas. Desde `v2` hashea `PROMPT_TEMPLATE` **más** el menú
-  generado de marcos y el de toxicidad; la versión `v1` hasheaba solo el
+  `keklab annotate ai task` y **se persiste** en cada tarea (`prompt_sha256`).
+  Desde `v2` hashea `PROMPT_TEMPLATE` **más** el menú generado de marcos y el de
+  toxicidad; `v3` cubre además `PROMPT_VERSION` y los campos de `task_json`
+  (la plantilla conserva el placeholder de la versión, así que sin esos campos
+  el hash no cambiaría al cambiar el prompt). La versión `v1` hasheaba solo el
   template.
 - `model` y `provider`: se guardan en cada propuesta, pero son autodeclarados
   por el archivo; el flujo file-based no verifica qué modelo generó el texto.

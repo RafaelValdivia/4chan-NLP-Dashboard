@@ -84,7 +84,9 @@ Acuerdo:
 
 ### E0: crudo vs saneado
 
-- Mismo modelo, mismo split, dos representaciones: `text_raw` y `text_clean`.
+- Con el prompt maestro en `v3` (solo `text_clean`), el modelo maestro ya no
+  anotó crudo: se conserva `text_raw` como representación candidata a fine-tuning
+  y se compara contra `text_clean`.
 - Métrica primaria: diferencia de F1 macro por cabeza en `dev`, con bootstrap
   pareado.
 - `text_clean` solo se usa si la diferencia es positiva y el intervalo no
@@ -216,8 +218,8 @@ Migración de los tres registros afectados:
 Los archivos históricos conservan las etiquetas retiradas como procedencia. El
 cargador (`normalize_frame_labels`) las elimina y, si un registro queda vacío,
 lo colapsa a `none`. La edición interactiva las rechaza. Las versiones suben a
-`guideline_version = "v0.2"` y `prompt_version = "v2"`; el hash del prompt ahora
-cubre también los menús generados de marcos y toxicidad.
+`guideline_version = "v0.2"` y `prompt_version = "v3"`; el hash del prompt ahora
+cubre también la versión y los campos de `task_json`.
 
 ### Trabajo futuro: `national_stereotypes`
 

@@ -9,8 +9,8 @@ Ninguna propuesta se convierte en oro automáticamente.
 - El piloto de 200 posts ya está cerrado: **200 registros de oro, 0 tareas
   pendientes**. No reabras ese corpus ni reescribas el oro.
 - Taxonomía vigente: **16 marcos finos / 7 cabezas gruesas** (`v0.2`).
-- Prompt vigente: **`v2`**, hash
-  `30dc56899dfc77347c2c32cfbab67cb15569e3a8b3c87c472325b91565b01769`.
+- Prompt vigente: **`v3`**, hash
+  `ef251abee5137ab35ff1882817c97aee5bdcdac9c0ee52900afbbe60d68c995e`.
 - Este handoff sirve para una **tanda nueva** de posts o para un smoke test con
   archivos aparte. No uses la tanda cerrada para producir propuestas nuevas sin
   una instrucción explícita.
@@ -57,7 +57,7 @@ keklab annotate ai task \
 ```
 
 Anota el `prompt_sha256` que imprime el comando. Debe ser
-`30dc56899dfc77347c2c32cfbab67cb15569e3a8b3c87c472325b91565b01769`.
+`ef251abee5137ab35ff1882817c97aee5bdcdac9c0ee52900afbbe60d68c995e`.
 Si no coincide, detente: el prompt o los menús cambiaron.
 
 Las tareas ya vienen ciegas: no incluyen `subject` ni contexto, y el estrato
@@ -65,7 +65,7 @@ dirigido se recorta a `reason`/`month`.
 
 ## Paso 2 — Ejecutar el modelo, una tarea por vez
 
-Usa el prompt de `docs/prompts/annotation_prompt_v2.txt`. Sustituye
+Usa el prompt de `docs/prompts/annotation_prompt_v3.txt`. Sustituye
 `<<<TASK_JSON>>>` por el JSON de la tarea. Si ejecutas código, genera el prompt
 exacto con:
 
@@ -74,8 +74,8 @@ from keklab.annotation.prompts import render_prompt
 print(render_prompt(task))
 ```
 
-`render_prompt(task)` solo incluye `post_id`, `text_raw` y `text_clean`; no
-agrega contexto ni metadatos. No agregues instrucciones adicionales al prompt.
+`render_prompt(task)` solo incluye `post_id` y `text_clean`; no agrega contexto
+ni metadatos. No agregues instrucciones adicionales al prompt.
 
 Escribe **un objeto JSON por tarea**, sin markdown, sin texto extra, en:
 
@@ -178,7 +178,7 @@ La importación falla si:
 - el `proposal_id` no coincide con `task_id + model + prompt_version`;
 - `post_id`, `thread_id`, `source`, `content_hash`, `guideline_version` o
   `prompt_version` no coinciden con la tarea;
-- la evidencia no aparece verbatim en `text_raw` o `text_clean`;
+- la evidencia no aparece verbatim en `text_clean`;
 - hay propuestas duplicadas.
 
 Si falla, corrige el archivo crudo o la conversión y vuelve a intentar. No
