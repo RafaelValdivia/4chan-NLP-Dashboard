@@ -25,6 +25,7 @@ models/gguf/*.part
 # Raw LLM outputs and predictions can be regenerated from tasks + manifests
 data/classification/llm/raw/
 data/classification/predictions/
+data/classification/l1/
 
 # Pilot intermediates: only the final gold set is versioned
 data/annotations/tasks/

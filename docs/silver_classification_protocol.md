@@ -181,6 +181,11 @@ Se versionan muestras, tareas, plata, splits, reportes y manifiestos pequeños.
 Se ignoran las salidas crudas del LLM y las predicciones, que se regeneran
 desde tareas y manifiestos.
 
+`predictions/<modelo>/` son las predicciones sobre dev/test, para evaluación.
+Son otra cosa que **L1**: las predicciones del modelo aplicadas al corpus
+completo, que se guardan como Parquet mensual fuera del repositorio (ver
+`docs/analytics.md`).
+
 ## Límites
 
 - La plata hereda sesgos y errores del maestro.

@@ -9,11 +9,15 @@ mismo número que muestra el panel.
 | Capa | Qué es | Dónde vive | Para qué |
 |---|---|---|---|
 | L0 | Corpus canónico completo (134,5 M posts) | Parquet mensual en disco externo | Volumen, denominadores, búsqueda |
-| L1 | Predicciones del clasificador sobre L0 | Tabla o parquet de predicciones | Agregados de marcos y toxicidad |
+| L1 | Predicciones del clasificador sobre L0 | Parquet mensual, fuera del repo | Agregados de marcos y toxicidad |
 | L2 | 5.000 silver + 200 gold | `data/classification/` | Entrenamiento y evaluación |
 
 L0 no lleva etiquetas: son los denominadores honestos. L1 es lo que permite
 hablar de prevalencia de marcos.
+
+L1 se escribe con `keklab classify store`: una fila por post, con `frame_labels`,
+`coarse_heads` y `toxicity`, particionada por mes. Vive fuera del repositorio
+(son 134,5 M filas) y el servicio la lee por glob.
 
 ## Filtros
 
