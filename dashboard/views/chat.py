@@ -11,7 +11,7 @@ import plotly.express as px
 import streamlit as st
 
 from chat.tools import TOOL_HELP, TOOLS, run
-from state import FilterState, show_provenance
+from state import FilterState
 
 
 def _render_figure(figure: dict) -> None:

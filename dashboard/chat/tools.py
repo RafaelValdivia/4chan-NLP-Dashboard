@@ -8,13 +8,12 @@ the warehouse with its own SQL.
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
 from keklab.analytics import AnalyticsService, Filters
 from keklab.annotation.labels import FRAME_LABELS, TOXICITY_DESCRIPTIONS
-from keklab.annotation.taxonomy import COARSE_HEADS, collapse_frames
+from keklab.annotation.taxonomy import collapse_frames
 
 # Small curated dictionary. The extraction is lexical, not a trained NER: it
 # counts mentions, it does not resolve them. The corpus is in English, so
