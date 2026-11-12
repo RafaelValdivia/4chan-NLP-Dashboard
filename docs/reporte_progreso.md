@@ -1,7 +1,7 @@
 ---
 title: "Reporte de progreso — Proyecto 4chan-NLP-Dashboard"
 subtitle: "Avance hacia la analítica de narrativas y el chatbot"
-date: "10-11-2026"
+date: "11-11-2026"
 ---
 
 # Reporte de progreso
