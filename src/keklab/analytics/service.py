@@ -321,7 +321,8 @@ class AnalyticsService:
             exploded AS (
                 SELECT thread_id, unnest(values) AS value FROM scoped
             )
-            SELECT thread_id, value, count(*) AS n
+            SELECT thread_id, value, count(*) AS n,
+                   (SELECT count(*) FROM scoped) AS labeled_posts
             FROM exploded
             GROUP BY GROUPING SETS ((thread_id, value), (thread_id))
         """
@@ -330,8 +331,10 @@ class AnalyticsService:
         per_label: dict[str, int] = {}
         thread_totals: dict[Any, int] = {}
         per_thread_label: dict[tuple[Any, str], int] = {}
-        for thread_id, value, count in rows:
+        labeled_posts = 0
+        for thread_id, value, count, labeled in rows:
             count = int(count)
+            labeled_posts = int(labeled)
             if value is None:
                 thread_totals[thread_id] = count
                 continue
@@ -346,7 +349,6 @@ class AnalyticsService:
                 for thread_id, total in thread_totals.items()
             ]
             thread_counts[label] = pairs
-        labeled_posts = sum(thread_totals.values())
         return per_label, thread_counts, labeled_posts
 
     def frame_distribution(
