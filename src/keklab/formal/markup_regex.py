@@ -22,10 +22,28 @@ SPOILER_HTML_RE = re.compile(r"<span[^>]+class=['\"]spoiler['\"][^>]*>.*?</span>
 BACKLINK_RE = re.compile(r"<a[^>]*quotelink[^>]*>.*?</a>", flags=re.IGNORECASE | re.DOTALL)
 # Saltos de línea
 BR_RE = re.compile(r"<br\s*/?>", flags=re.IGNORECASE)
+# Word-break hint: HTML-only noise that survives the generic tag list.
+WBR_RE = re.compile(r"<wbr\s*/?>", flags=re.IGNORECASE)
 # Blockquotes
 BLOCKQUOTE_RE = re.compile(r"<blockquote.*?>.*?</blockquote>", flags=re.IGNORECASE | re.DOTALL)
-# Otros tags comunes
-EXTRA_TAGS_RE = re.compile(r"</?(?:span|div|b|i|strong|em|s|u)[^>]*>", flags=re.IGNORECASE)
+# Real HTML tags. This is an explicit whitelist on purpose: 4chan posts also
+# contain invented tags that are part of the joke (`</kanye>`), and a generic
+# `<[^>]+>` rule would delete the text along with the markup. `wbr` is not in
+# this list because it is a word-break hint, not a separator: it is removed
+# without inserting a space (see `WBR_RE`).
+HTML_TAGS_RE = re.compile(
+    r"</?(?:a|abbr|acronym|address|area|article|aside|audio|b|base|bdi|bdo|big|"
+    r"blockquote|body|br|button|canvas|caption|center|cite|code|col|colgroup|"
+    r"data|datalist|dd|del|details|dfn|dialog|div|dl|dt|em|embed|fieldset|"
+    r"figcaption|figure|font|footer|form|h1|h2|h3|h4|h5|h6|head|header|hgroup|"
+    r"hr|html|i|iframe|img|input|ins|kbd|label|legend|li|link|main|map|mark|"
+    r"marquee|menu|meta|nav|noframes|noscript|object|ol|optgroup|option|"
+    r"output|p|param|picture|pre|progress|q|rp|rt|ruby|s|samp|script|section|"
+    r"select|small|source|span|strike|strong|style|sub|summary|sup|svg|table|"
+    r"tbody|td|template|textarea|tfoot|th|thead|time|title|tr|track|u|ul|var|"
+    r"video)\b[^>]*>",
+    flags=re.IGNORECASE,
+)
 
 
 def has_html(text: str) -> bool:
@@ -62,13 +80,16 @@ def strip_markup(text: str) -> str:
     t = BACKLINK_RE.sub(" ", t)
     t = BLOCKQUOTE_RE.sub(" ", t)
     t = BR_RE.sub("\n", t)
-    t = EXTRA_TAGS_RE.sub(" ", t)
+    t = WBR_RE.sub("", t)
+    t = HTML_TAGS_RE.sub(" ", t)
     return t
 
 
 def strip_markup_plain(text: str) -> str:
-    """Para casos sin HTML, solo limpiar espacios extra."""
+    """Para casos sin HTML: desescapa y quita el ruido de `<wbr>`."""
     if not text:
         return ""
     t = html.unescape(text)
+    t = WBR_RE.sub("", t)
+    t = HTML_TAGS_RE.sub(" ", t)
     return t
