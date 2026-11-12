@@ -539,6 +539,7 @@ def _sample_random_archive(
 
     samples: list[SamplePost] = []
     used: set[str] = set()
+    used_hashes: set[str] = set()
     empty_used = 0
 
     for candidate in _round_robin_by_month(candidates, rng):
@@ -565,17 +566,20 @@ def _sample_random_archive(
 
         post_id = _text(target.get("post_id"))
         used.add(post_id)
-        samples.append(
-            build_sample(
-                rows,
-                post_id,
-                {
-                    "reason": "random",
-                    "month": candidate["month"],
-                    "thread_id": candidate["num"],
-                },
-            )
+        sample = build_sample(
+            rows,
+            post_id,
+            {
+                "reason": "random",
+                "month": candidate["month"],
+                "thread_id": candidate["num"],
+            },
         )
+        # Copypasta can repeat across threads; the content must be unique.
+        if sample.content_hash in used_hashes:
+            continue
+        used_hashes.add(sample.content_hash)
+        samples.append(sample)
 
     return samples
 
@@ -596,6 +600,7 @@ def _sample_targeted_archive(
     months: int,
     rng: random.Random,
     exclude_post_ids: set[str],
+    exclude_hashes: set[str] | None = None,
     end: datetime | None = None,
 ) -> list[SamplePost]:
     if count <= 0:
@@ -610,6 +615,7 @@ def _sample_targeted_archive(
 
     samples: list[SamplePost] = []
     seen = set(exclude_post_ids)
+    used_hashes = set(exclude_hashes or set())
     per_frame: Counter[str] = Counter()
 
     for frame, term in targets:
@@ -659,19 +665,21 @@ def _sample_targeted_archive(
 
                 post_id = _text(target.get("post_id"))
                 seen.add(post_id)
-                per_frame[frame] += 1
-                samples.append(
-                    build_sample(
-                        rows,
-                        post_id,
-                        {
-                            "reason": "targeted",
-                            "frame": frame,
-                            "term": term,
-                            "month": _month_key(timestamp),
-                        },
-                    )
+                sample = build_sample(
+                    rows,
+                    post_id,
+                    {
+                        "reason": "targeted",
+                        "frame": frame,
+                        "term": term,
+                        "month": _month_key(timestamp),
+                    },
                 )
+                if sample.content_hash in used_hashes:
+                    continue
+                used_hashes.add(sample.content_hash)
+                per_frame[frame] += 1
+                samples.append(sample)
 
     return samples
 
@@ -709,6 +717,7 @@ def sample_fourplebs(
         months=months,
         rng=rng,
         exclude_post_ids={sample.post_id for sample in random_samples},
+        exclude_hashes={sample.content_hash for sample in random_samples},
         end=end,
     )
 

@@ -132,6 +132,34 @@ def test_collect_archive_candidates_stops_outside_window():
     assert [candidate["num"] for candidate in candidates] == ["1"]
 
 
+def test_sample_fourplebs_dedupes_identical_content():
+    """Copypasta across threads must not enter the sample twice."""
+    first = archive_post(100, 100, NOW - timedelta(days=3), "bump", op=True)
+    second = archive_post(200, 200, NOW - timedelta(days=70), "bump", op=True)
+    third = archive_post(300, 300, NOW - timedelta(days=40), "unique text", op=True)
+
+    client = FakeArchiveClient(
+        index_pages=[index_payload([first, second, third])],
+        threads={
+            "100": thread_payload(100, [first]),
+            "200": thread_payload(200, [second]),
+            "300": thread_payload(300, [third]),
+        },
+    )
+
+    samples = sample_fourplebs(
+        random_count=3,
+        targeted_count=0,
+        months=24,
+        seed=1,
+        max_pages=2,
+        client=client,
+    )
+
+    assert len(samples) == 2
+    assert len({sample.content_hash for sample in samples}) == 2
+
+
 def test_sample_fourplebs_builds_random_and_targeted_samples():
     recent_a = archive_post(
         100, 100, NOW - timedelta(days=3), "Random political post", op=True
