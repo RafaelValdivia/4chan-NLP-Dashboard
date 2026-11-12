@@ -15,6 +15,7 @@ from state import (
     FilterState,
     previous_window,
     show_provenance,
+    to_csv,
 )
 
 
@@ -76,6 +77,12 @@ def render(service, state: FilterState) -> None:
             for row in rows
         ]
         st.dataframe(table, width="stretch", hide_index=True)
+        st.download_button(
+            "Descargar CSV",
+            data=to_csv(table),
+            file_name="marcos.csv",
+            mime="text/csv",
+        )
     else:
         st.info("Ninguna predicción cae dentro del filtro.")
 

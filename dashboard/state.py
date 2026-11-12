@@ -16,7 +16,7 @@ from keklab.analytics import AnalyticsService, EventTimeline, Filters
 from keklab.annotation.labels import FRAME_LABELS
 from keklab.annotation.taxonomy import COARSE_HEADS
 
-from config import events_path, l0_glob, predictions_source
+from config import events_path, l0_available, l0_glob, predictions_source
 
 PAGES: tuple[tuple[str, str], ...] = (
     ("resumen", "Resumen"),
@@ -84,6 +84,18 @@ def get_service() -> AnalyticsService:
             events=timeline,
         )
     return st.session_state.analytics_service
+
+
+def require_corpus() -> AnalyticsService | None:
+    """Return the service, or explain that the warehouse is missing."""
+    if not l0_available():
+        st.error(
+            "No se encontró el almacén L0 en "
+            f"`{l0_glob()}`. Construilo con `keklab ingest l0` o ajustá "
+            "la variable `KEKLAB_L0_GLOB`."
+        )
+        return None
+    return get_service()
 
 
 @dataclass
@@ -238,3 +250,17 @@ def _shift_months(value: date, months: int) -> date:
     year, month = divmod(month_index, 12)
     day = min(value.day, [31, 29 if year % 4 == 0 and (year % 100 or year % 400 == 0) else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month])
     return date(year, month + 1, day)
+
+
+def to_csv(rows: list[dict[str, Any]]) -> str:
+    """Render a table as CSV so an analyst can take the numbers away."""
+    import csv
+    import io
+
+    buffer = io.StringIO()
+    if not rows:
+        return ""
+    writer = csv.DictWriter(buffer, fieldnames=list(rows[0]))
+    writer.writeheader()
+    writer.writerows(rows)
+    return buffer.getvalue()

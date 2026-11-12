@@ -8,7 +8,7 @@ from __future__ import annotations
 import plotly.express as px
 import streamlit as st
 
-from state import FilterState, show_provenance
+from state import FilterState, show_provenance, to_csv
 
 
 def render(service, state: FilterState) -> None:
@@ -63,18 +63,21 @@ def render(service, state: FilterState) -> None:
     )
     st.plotly_chart(figure, width="stretch")
 
-    st.dataframe(
-        [
-            {
-                "nivel": row["level"],
-                "posts": row["count"],
-                "share": f"{row['share']:.2%}",
-                "IC 95%": f"{row['wilson']['low']:.2%}–{row['wilson']['high']:.2%}",
-            }
-            for row in data["levels"]
-        ],
-        width="stretch",
-        hide_index=True,
+    table = [
+        {
+            "nivel": row["level"],
+            "posts": row["count"],
+            "share": f"{row['share']:.2%}",
+            "IC 95%": f"{row['wilson']['low']:.2%}–{row['wilson']['high']:.2%}",
+        }
+        for row in data["levels"]
+    ]
+    st.dataframe(table, width="stretch", hide_index=True)
+    st.download_button(
+        "Descargar CSV",
+        data=to_csv(table),
+        file_name="toxicidad.csv",
+        mime="text/csv",
     )
 
     show_provenance(distribution["provenance"])

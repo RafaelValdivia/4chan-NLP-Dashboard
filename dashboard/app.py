@@ -15,7 +15,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from state import PAGES, get_service, read_sidebar  # noqa: E402
+from state import PAGES, read_sidebar, require_corpus  # noqa: E402
 from views import (  # noqa: E402
     calidad,
     chat,
@@ -44,7 +44,9 @@ def main() -> None:
         layout="wide",
     )
     state = read_sidebar()
-    service = get_service()
+    service = require_corpus()
+    if service is None:
+        return
 
     label_to_key = {label: key for key, label in PAGES}
     page = label_to_key.get(state_page(), "resumen")
