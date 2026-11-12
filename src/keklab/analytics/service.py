@@ -627,6 +627,62 @@ class AnalyticsService:
             ),
         }
 
+    def term_counts(
+        self,
+        filters: Filters,
+        dictionary: dict[str, Iterable[str]],
+    ) -> dict[str, Any]:
+        """Count the posts that mention any alias of each dictionary entry.
+
+        The matching is lexical and case insensitive: it counts mentions, it
+        does not resolve them.
+        """
+        where_sql, params = self._posts_where(filters)
+        entries: list[tuple[str, str]] = []
+        for entity, aliases in dictionary.items():
+            for alias in aliases:
+                entries.append((entity, alias))
+
+        if not entries:
+            return {
+                "data": [],
+                "provenance": self._provenance(
+                    filters, n=0, denominator=0, warnings=["Diccionario vacío"]
+                ),
+            }
+
+        selects = []
+        query_params = list(params)
+        for _, alias in entries:
+            selects.append("count(*) FILTER (WHERE p.text_clean ILIKE ?)")
+            query_params.append(f"%{alias}%")
+        sql = f"""
+            SELECT {', '.join(selects)}
+            FROM {self._posts_source} p
+            {f'WHERE {where_sql}' if where_sql else ''}
+        """
+        row = self._run(sql, query_params)[0]
+
+        totals: dict[str, int] = {}
+        for (entity, _), count in zip(entries, row):
+            totals[entity] = totals.get(entity, 0) + int(count)
+        rows = [
+            {"entity": entity, "count": count}
+            for entity, count in sorted(totals.items(), key=lambda item: -item[1])
+            if count > 0
+        ]
+        posts = self._count_posts(filters)
+        return {
+            "data": rows,
+            "provenance": self._provenance(
+                filters,
+                n=sum(row["count"] for row in rows),
+                denominator=posts,
+                warnings=[],
+                extra={"entities_checked": len(dictionary)},
+            ),
+        }
+
     # -- comparison -------------------------------------------------------
 
     def compare(
