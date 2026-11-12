@@ -6,13 +6,16 @@ from __future__ import annotations
 
 import json
 import time
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
 from keklab.annotation.prompts import render_prompt
 from keklab.annotation.proposal import TaskRecord
+from keklab.classification.errors import classify_exception
 from keklab.classification.silver import parse_json_object
+from keklab.classification.validate import repair_prompt, validate_payload
 from keklab.common.logging import get_logger
 
 log = get_logger(__name__)
@@ -59,13 +62,34 @@ def run_batch(
     retry_failed: bool = True,
     retries: int = 1,
     schema: dict[str, Any] | None = None,
+    validate: bool = True,
     log_every: int = 50,
+    max_consecutive_transport_errors: int = 3,
+    abort_on_systemic: bool = True,
+    transport_backoff_s: float = 1.0,
 ) -> dict[str, Any]:
     """Run one backend over tasks, appending raw rows for later conversion.
 
     Rows with a parsed `payload` are considered complete on resume. Failed
     rows are retried unless `retry_failed=False`. The raw file is append-only
     so a crash never loses completed work.
+
+    With `validate=True` each parsed payload is checked against the
+    annotation contract. A payload that breaks the contract is treated as a
+    failure and, while attempts remain, the model is asked once to repair it.
+
+    Backend failures are classified instead of blindly repaired:
+
+    - `transport` (server unreachable, 5xx): retried with the original
+      prompt, then the shard aborts after
+      `max_consecutive_transport_errors` such failures in a row;
+    - `systemic` (context exhausted, OOM, model not loaded): never retried
+      and the shard aborts immediately, because no prompt can fix it;
+    - `contract` (invalid JSON or payload): repaired once with
+      `repair_prompt`, then recorded as a normal failure.
+
+    Aborting stops the loop after writing the offending row; the remaining
+    tasks stay pending and are picked up by a later resume.
     """
     all_tasks = list(tasks)
     selected = _shard_slice(all_tasks, shard)
@@ -95,6 +119,11 @@ def run_batch(
     ok = 0
     failed = 0
     skipped = 0
+    repaired = 0
+    consecutive_transport = 0
+    aborted = False
+    abort_reason: str | None = None
+    error_kinds: Counter[str] = Counter()
     started = time.monotonic()
 
     with out.open("a", encoding="utf-8") as handle:
@@ -108,17 +137,69 @@ def run_batch(
             raw_text = ""
             payload: dict[str, Any] | None = None
             error: str | None = None
+            error_kind: str | None = None
+            validation_issues: list[str] = []
             attempt_started = time.monotonic()
+            current_prompt = prompt
+            used_repair = False
 
             for attempt in range(retries + 1):
                 attempts = attempt + 1
                 try:
-                    raw_text = backend.generate(prompt, schema=schema)
-                    payload = parse_json_object(raw_text)
-                    error = None
-                    break
-                except Exception as exc:  # noqa: BLE001 - record and retry
+                    raw_text = backend.generate(current_prompt, schema=schema)
+                except Exception as exc:  # noqa: BLE001 - record and classify
                     error = f"{type(exc).__name__}: {exc}"
+                    error_kind = classify_exception(exc)
+                    payload = None
+                    if error_kind == "systemic":
+                        # A longer prompt cannot fix an exhausted context.
+                        break
+                    if error_kind == "transport":
+                        # Retry the original prompt, never a repair prompt.
+                        if attempt < retries:
+                            if transport_backoff_s > 0:
+                                time.sleep(
+                                    min(
+                                        transport_backoff_s * (attempt + 1),
+                                        10.0,
+                                    )
+                                )
+                            continue
+                        break
+                    if attempt < retries:
+                        current_prompt = repair_prompt(prompt, raw_text, [error])
+                        used_repair = True
+                    continue
+
+                error_kind = "contract"
+                payload = None
+                parse_error: str | None = None
+                try:
+                    parsed = parse_json_object(raw_text)
+                    issues = (
+                        validate_payload(parsed, task) if validate else []
+                    )
+                except Exception as exc:  # noqa: BLE001 - malformed JSON
+                    parse_error = f"{type(exc).__name__}: {exc}"
+                    issues = [f"unparseable JSON: {exc}"]
+                if issues:
+                    validation_issues = issues
+                    error = parse_error or (
+                        "invalid payload: " + "; ".join(issues)
+                    )
+                    if attempt < retries:
+                        current_prompt = repair_prompt(prompt, raw_text, issues)
+                        used_repair = True
+                        continue
+                    break
+                payload = parsed
+                error = None
+                error_kind = None
+                validation_issues = []
+                break
+
+            if used_repair and payload is not None:
+                repaired += 1
 
             latency = time.monotonic() - attempt_started
             row = {
@@ -128,6 +209,8 @@ def run_batch(
                 "raw_text": raw_text,
                 "payload": payload,
                 "error": error,
+                "error_kind": error_kind,
+                "validation_issues": validation_issues,
                 "model": model,
                 "provider": provider,
                 "prompt_version": task.prompt_version,
@@ -141,8 +224,36 @@ def run_batch(
 
             if payload is None:
                 failed += 1
+                error_kinds[error_kind or "other"] += 1
             else:
                 ok += 1
+
+            if error_kind == "transport":
+                consecutive_transport += 1
+            else:
+                consecutive_transport = 0
+
+            systemic_abort = abort_on_systemic and error_kind == "systemic"
+            transport_abort = (
+                max_consecutive_transport_errors > 0
+                and consecutive_transport >= max_consecutive_transport_errors
+            )
+            if systemic_abort or transport_abort:
+                aborted = True
+                abort_reason = (
+                    f"systemic backend error: {error}"
+                    if systemic_abort
+                    else (
+                        f"{consecutive_transport} consecutive transport "
+                        "errors"
+                    )
+                )
+                log.error(
+                    "LLM batch aborted after task %s: %s",
+                    task.task_id,
+                    abort_reason,
+                )
+                break
 
             if log_every and position % log_every == 0:
                 log.info(
@@ -162,6 +273,7 @@ def run_batch(
         "ok": ok,
         "failed": failed,
         "skipped": skipped,
+        "repaired": repaired,
         "new_rows": ok + failed,
         "shard": list(shard),
         "limit": limit,
@@ -169,6 +281,12 @@ def run_batch(
         "provider": provider,
         "resume": resume,
         "retry_failed": retry_failed,
+        "validate": validate,
+        "aborted": aborted,
+        "abort_reason": abort_reason,
+        "error_kinds": dict(error_kinds),
+        "max_consecutive_transport_errors": max_consecutive_transport_errors,
+        "abort_on_systemic": abort_on_systemic,
         "elapsed_s": round(elapsed, 2),
         "output": str(out),
     }

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import bz2
 import gzip
+import io
 import json
 import shutil
 import subprocess
@@ -209,10 +210,13 @@ def _open_zstd_binary(path: Path):
     if zstandard is not None:
         with path.open("rb") as raw:
             reader = zstandard.ZstdDecompressor().stream_reader(raw)
+            # zstandard >= 0.25 streams are not directly iterable; the buffered
+            # wrapper restores line iteration for NDJSON members.
+            buffered = io.BufferedReader(reader)
             try:
-                yield reader
+                yield buffered
             finally:
-                reader.close()
+                buffered.close()
         return
 
     zstd_bin = shutil.which("zstd")
