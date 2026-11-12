@@ -163,13 +163,26 @@ predicciones y muestran volumen. No inventan cuotas.
 
 ## Verificación del panel sobre el corpus real
 
-El servicio responde sobre los 134,5 M posts:
+El panel corrió contra el almacén completo, no contra fixtures:
 
 ```text
-keklab analytics overview --l0 '<glob>'   → 30 s
-keklab analytics search --query 'QAnon'   → 25 s (escaneo completo)
-keklab analytics series --granularity month → volumen por mes
+Resumen   → 134.529.233 posts · 3.397.911 hilos · mediana 66 chars · 42 meses
+Chat      → "134.529.233 posts en 3.397.911 hilos" + aviso de que no hay L1
+Calidad   → estado done · 213/213 trozos · 134.529.233 escritos · 0 JSON inválido
 ```
+
+Tiempos sobre 8,4 GB de Parquet:
+
+| Consulta | Tiempo |
+|---|---:|
+| `analytics overview` | 30 s |
+| `analytics search --query 'QAnon'` | 25 s |
+| `analytics series` | 10 s |
+| Menciones de entidades (60 alias) | 40 s |
+
+Las menciones de entidades costaban minutos: el filtro por alias escaneaba
+el texto una vez por alias. Ahora es **una sola pasada con un regex
+combinado** y baja a 40 s.
 
 Sin L1, `series` devuelve el volumen en lugar de cuotas y lo dice en un aviso:
 el panel no inventa números.
