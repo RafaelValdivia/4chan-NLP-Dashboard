@@ -271,6 +271,12 @@ def resumir(service: AnalyticsService, filters: Filters, question: str) -> ToolR
             f"Toxicidad ≥ 2: {toxicity['toxic_count']:,} posts "
             f"({toxicity['toxic_share']:.2%})."
         )
+    events = service.events_between(filters.start, filters.end)
+    if events:
+        lines.append(
+            "Hitos externos en la ventana: "
+            + ", ".join(f"{event.date} {event.label}" for event in events)
+        )
     return ToolResult(
         text="\n".join(line for line in lines if line),
         table=entities,
