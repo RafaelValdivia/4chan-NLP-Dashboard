@@ -1,0 +1,67 @@
+# Hitos externos del eje temporal.
+#
+# Ground truth curado a mano: son eventos del mundo, no etiquetas del modelo.
+# El dashboard los usa como marcadores de la línea de tiempo; ninguna lógica
+# de clasificación los consume. La extracción automática desde el corpus es
+# una mejora futura, no un requisito.
+#
+# Campos: id (único), date (YYYY-MM-DD), label, scope, note, url.
+# Solo se anotan hitos con fecha documentada.
+
+version: 1
+
+events:
+  - id: pizzagate
+    date: 2016-11-04
+    label: "Pizzagate: publicación original en /pol/"
+    scope: global
+    note: >-
+      Hilo en /pol/ sobre un supuesto anillo de pornografía infantil en Comet
+      Ping Pong. De este hilo nace la figura de "Q" y, con ella, QAnon.
+    url: https://en.wikipedia.org/wiki/Pizzagate_(conspiracy_theory)
+
+  - id: pizzagate_hack
+    date: 2016-11-09
+    label: "Pizzagate: se hace público el hackeo del restaurante"
+    scope: global
+    note: >-
+      Se filtran los correos internos del restaurante, confirmando los planes
+      del hilo original. El tema despega en el resto de la prensa.
+    url: https://en.wikipedia.org/wiki/Pizzagate_(conspiracy_theory)
+
+  - id: trump_inauguration
+    date: 2017-01-20
+    label: "Inauguración de Donald Trump"
+    scope: global
+    note: >-
+      Cambio de administración en EE.UU. y arranque del ciclo de Special
+      Counsel y del debate sobre integridad electoral que consume /pol/.
+    url: https://en.wikipedia.org/wiki/First_inauguration_of_Donald_Trump
+
+  - id: cambridge_analytica
+    date: 2018-03-17
+    label: "Cambridge Analytica y fuga de datos de Facebook"
+    scope: global
+    note: >-
+      El caso reaviva la discusión sobre microsegmentación política y
+      manipulación de audiencias en redes sociales.
+    url: https://en.wikipedia.org/wiki/Cambridge_Analytica
+
+  - id: christchurch
+    date: 2019-03-15
+    label: "Atentado de Christchurch"
+    scope: global
+    note: >-
+      Contexto de xenofobia y discurso de odio tras un ataque de supremacistas
+      blancos. Marca un pico de vocabulario de odio en el corpus.
+    url: https://en.wikipedia.org/wiki/Christchurch_attacks
+
+  - id: mueller_report
+    date: 2019-03-22
+    label: "Entrega del informe Mueller"
+    scope: global
+    note: >-
+      El Fiscal General Especial entrega su informe sobre la investigación de
+      la interfencia rusa; la narrativa de QAnon interpreta brevemente el
+      contenido como validación del propio hilo.
+    url: https://en.wikipedia.org/wiki/Special_Counsel_Robert_Mueller

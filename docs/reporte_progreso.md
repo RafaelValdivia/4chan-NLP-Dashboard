@@ -110,16 +110,17 @@ semánticas distintas.
 
 | Componente | Estado | Foco inmediato |
 |---|---|---|
-| Corpus histórico ROTLK | Listo | — |
+| Corpus histórico ROTLK | Listo | L0 en disco externo: 134,5 M posts en Parquet mensual. |
 | Corpus reciente 4plebs | Parcial | Descargar y validar la ventana de 24 meses. |
 | Anotación humana | Listo (piloto) | Ampliar si se busca el modelo completo. |
 | Clasificadores de marco y toxicidad | Iniciado | Plata de 5.000 posts y evaluación E0/E2. |
 | Comparación temporal | No iniciado | Datos recientes + modelo + línea de eventos. |
-| Dashboard | No iniciado | Backend analítico y UI. |
-| Chatbot | No iniciado | Tool calling y suite E5. |
+| Backend analítico | Listo | `keklab.analytics`: filtros, cuotas, series, procedencia. |
+| Dashboard | MVP listo | 7 secciones; faltan las cuotas de marcos hasta que haya L1. |
+| Chatbot | Iniciado | 5 herramientas sobre el backend; falta el LLM que planifique. |
 | Extracción estructurada | No iniciado | Integración de Laya/Gleaner/GLiNER. |
-En una frase: **la infraestructura, el oro y el plan de modelado están listos;
-el producto analítico y el chatbot todavía no.**
+En una frase: **la infraestructura, el corpus, el oro, el backend y el panel
+ya existen; falta el modelo aplicado al corpus (L1) y la ventana reciente.**
 
 # Obstáculos
 
@@ -131,7 +132,7 @@ el producto analítico y el chatbot todavía no.**
 | Sesgo del LLM en la plata | La plata hereda errores y sesgos del maestro. | No llamarla oro; diagnóstico externo con el oro de 200. |
 | Un solo anotador humano | No hay acuerdo inter-anotador. | Self test-retest pendiente y limitación documentada. |
 | Cómputo limitado | GPU de 8 GB y sin API externa para millones de textos. | Modelos clásicos/encoders a escala; LLM local para etiquetado y chatbot. |
-| Producto sin backend | Dashboard y chatbot dependen de consultas y series. | Priorizar corpus → clasificador → backend analítico. |
+| Producto sin backend | Dashboard y chatbot dependen de consultas y series. | Resuelto: `keklab.analytics` es la fuente única. |
 
 # Hoja de ruta
 
@@ -142,16 +143,18 @@ el producto analítico y el chatbot todavía no.**
 | 2. Plata y primer clasificador | Etiquetar 5.000 posts con el LLM y entrenar el _baseline_. | Plata confiada, E0/E2 y métricas por cabeza. |
 | 3. Escalado | Comparar clásicos, BERT, Laya, GLiClass y GLiNER. | Modelo aplicable a volúmenes grandes. |
 | 4. Comparación temporal | Aplicar el modelo a histórico y reciente. | E4 con series y eventos. |
-| 5. Backend analítico | Consultas, agregados y series para la UI. | API/servicios compartidos. |
-| 6. Dashboard | Exploración visual para analistas. | MVP con distribución, toxicidad y tiempo. |
-| 7. Chatbot | _Tool calling_ sobre el backend. | Chatbot + suite E5. |
+| 5. Backend analítico (hecha) | Consultas, agregados y series para la UI. | `keklab.analytics` + CLI. |
+| 6. Dashboard (MVP hecha) | Exploración visual para analistas. | 7 secciones con volumen; cuotas cuando haya L1. |
+| 7. Chatbot (en curso) | _Tool calling_ sobre el backend. | 5 herramientas; falta el LLM que enrute y la suite E5. |
 | 8. Extracción estructurada | Tópicos y entidades por marco/período. | E6 integrado al dashboard/chatbot. |
 
 # Conclusión
 
-La base técnica, el corpus histórico y el esquema de anotación están resueltos.
-Las decisiones pendientes ya no son de infraestructura sino de **alcance y
-secuencia**: la plata de 5.000 posts permite entrenar y comparar modelos, pero
-el producto original —comparación temporal, dashboard y chatbot— todavía no
-existe. La ruta crítica es datos recientes → clasificador → comparación →
-backend → dashboard → chatbot, y el chatbot debe orientar las prioridades.
+La base técnica, el corpus histórico, el esquema de anotación, el backend
+analítico y el panel están resueltos. Lo que falta es **conectar el modelo con
+el corpus**: hasta que exista L1, las cuotas de marcos y toxicidad del panel
+son volumen, no prevalencia. La ruta crítica queda así: datos recientes →
+clasificador → L1 → comparación temporal, con el dashboard y el chatbot ya
+listos para mostrar lo que se les dé. La única decisión de alcance que sigue
+abierta es si la comparación histórica contra reciente entra antes o después
+de la extracción estructurada de tópicos y entidades.

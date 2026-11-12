@@ -512,3 +512,42 @@ está en `docs/evaluation_protocol.md`.
 La suite pasó de 87 a **109 pruebas**. Los tests nuevos cubren taxonomía,
 fusión/deduplicación, retest, split por hilo, auditoría y los cuatro comandos
 nuevos de la CLI.
+
+
+## Actualización: almacén canónico, capa de analítica y panel (11-11-26)
+
+| Archivo | Contenido |
+|---|---|
+| `src/keklab/ingest/l0.py` | Constructor del almacén canónico L0: NDJSON → Parquet mensual, troceado por rangos de bytes, con manifiesto reanudable. |
+| `src/keklab/analytics/filters.py` | `Filters`: ventana, orígenes, búsqueda, marcos, toxicidad; se traduce a SQL. |
+| `src/keklab/analytics/stats.py` | Wilson, bootstrap por hilo, umbral de celda inestable. |
+| `src/keklab/analytics/events.py` | Hitos externos curados (`configs/events.yaml`). |
+| `src/keklab/analytics/service.py` | Servicio analítico: overview, series, cuotas de marcos y toxicidad, comparación, búsqueda, entidades. |
+| `src/keklab/analytics/cli.py` | `keklab analytics ...`, una shell fina sobre el servicio. |
+| `dashboard/` | Panel Streamlit con 7 secciones y chat con 5 herramientas. |
+
+Decisiones de esta etapa:
+
+- **L0 es el denominador honesto**: una fila por post, sin `raw_html`, con
+  `content_hash64` y particionado por mes. Vive en el disco externo porque no
+  entra en el repositorio.
+- **El panel no reimplementa análisis**: todo número sale de
+  `keklab.analytics`, el mismo módulo que usa el chatbot.
+- **Cada respuesta lleva procedencia**: `n`, `denominator`, `coverage`,
+  `run_id` y avisos.
+- **Dos denominadores**: `all` (todos los posts de la ventana) y `labeled`
+  (solo los predichos). El primero es el que responde la pregunta del
+  analista.
+- **La incertidumbre se declara**: intervalo de Wilson por cuota, bootstrap
+  por hilo para las comparaciones, y aviso cuando `n < 30`.
+- **Los hitos externos son ground truth**, no etiquetas del modelo.
+
+Comandos:
+
+```bash
+keklab ingest l0 <ndjson> <salida> --workers 4 --chunk-mb 512
+keklab ingest l0-stats <salida>
+keklab analytics overview --l0 '<glob>'
+keklab analytics frames --l0 '<glob>' --predictions <tabla|parquet>
+streamlit run dashboard/app.py
+```
