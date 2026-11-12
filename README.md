@@ -13,7 +13,8 @@ src/keklab/
   ingest/    kek_loader, fourplebs_client, sample, dedupe
   annotation/ labels, schema, store, sampler, agreement, cli
   analytics/  filters, stats, events, service, cli (backend compartido)
-dashboard/    panel Streamlit y herramientas del chat
+  api/        FastAPI HTTP backend (panel + chatbot)
+web/        panel HTML/JS servido por la API de FastAPI y herramientas del chat
 tests/       suite de pytest
 configs/     configuración YAML
 docs/        notas del pipeline y codebook de anotación
@@ -162,7 +163,7 @@ keklab analytics events
 ```
 
 ```bash
-streamlit run dashboard/app.py
+keklab api serve --host 127.0.0.1 --port 8000
 ```
 
 El panel tiene siete secciones (Resumen, Marcos, Toxicidad, Línea de tiempo,
@@ -170,6 +171,14 @@ Explorar, Calidad y Chat) y el chat expone cinco herramientas sobre el mismo
 servicio. Cada respuesta lleva procedencia: `n`, denominador, cobertura,
 `run_id` y avisos. Las cuotas se acompañan de intervalos de Wilson y de un
 bootstrap por hilo.
+
+La interfaz es HTML estático servido por FastAPI (`web/`): los filtros viven en
+la query string, los gráficos en Plotly desde el propio paquete y el backend es
+`keklab.analytics`. El arranque es:
+
+```bash
+keklab api serve --host 127.0.0.1 --port 8000
+```
 
 El detalle está en `docs/analytics.md` y `docs/dashboard.md`.
 

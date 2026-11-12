@@ -1,7 +1,7 @@
 ---
 title: "Reporte de progreso — Proyecto 4chan-NLP-Dashboard"
 subtitle: "Avance hacia la analítica de narrativas y el chatbot"
-date: "11-11-2026"
+date: "12-11-26"
 ---
 
 # Reporte de progreso
@@ -14,9 +14,11 @@ producto es una aplicación de analítica para científicos sociales y analistas
 políticos, con un **chatbot inteligente** como componente más importante.
 
 **Estado general.** El proyecto completó la base de datos, limpieza y anotación
-humana. Todavía **no hay clasificadores entrenados, dashboard ni chatbot**. La
-fase actual es la plataforma sobre la que se construirán esos tres productos:
-el plan de etiquetado plata y de comparación de modelos ya está definido.
+humana, y la capa de analítica compartida (`keklab.analytics`) ya alimenta un
+backend HTTP (FastAPI), un panel web (HTML/JS + Plotly) y un chatbot por
+herramientas. Todavía **no hay clasificadores entrenados ni L1 aplicado al
+corpus**, por lo que las cuotas de marcos y toxicidad del panel se presentan como
+volumen. La fase actual es conectar el modelo con el corpus.
 
 # Decisiones tomadas
 
@@ -116,9 +118,10 @@ semánticas distintas.
 | Clasificadores de marco y toxicidad | Iniciado | Plata de 5.000 posts y evaluación E0/E2. |
 | Comparación temporal | No iniciado | Datos recientes + modelo + línea de eventos. |
 | Backend analítico | Listo | `keklab.analytics`: filtros, cuotas, series, procedencia. |
-| Dashboard | MVP listo | 7 secciones; faltan las cuotas de marcos hasta que haya L1. |
-| Chatbot | Iniciado | 5 herramientas sobre el backend; falta el LLM que planifique. |
+| Dashboard | En producción (web) | Backend FastAPI + front servido desde `web/`; 7 secciones; faltan cuotas de marcos hasta que haya L1. |
+| Chatbot | En curso | 5 herramientas sobre el backend; falta el LLM que enrute y la suite E5. |
 | Extracción estructurada | No iniciado | Integración de Laya/Gleaner/GLiNER. |
+| Interfaz | FastAPI + HTML/JS servido desde `web/` con Plotly local; filtros en la URL. | El backend no cambia: los tres productos (dashboard, chatbot, CLI) consumen `keklab.analytics`. |
 En una frase: **la infraestructura, el corpus, el oro, el backend y el panel
 ya existen; falta el modelo aplicado al corpus (L1) y la ventana reciente.**
 
