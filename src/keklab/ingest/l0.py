@@ -21,7 +21,7 @@ from keklab.formal.cleaning import clean_post
 
 log = get_logger(__name__)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 SOURCE = "kek"
 PERIOD = "hist_2016_2019"
 HASH_SIZE = 8
@@ -188,6 +188,8 @@ def _flush(
     month: str,
     chunk_id: int,
     rows: list[tuple[Any, ...]],
+    *,
+    flush_index: int,
 ) -> Path:
     import pandas as pd
 
@@ -229,7 +231,10 @@ def _flush(
         """
     )
 
-    path = out_dir / f"month={month}" / f"part-{chunk_id:05d}.parquet"
+    # The flush index keeps the name unique: a chunk that empties the same
+    # month twice must not overwrite its own first part.
+    name = f"part-{chunk_id:05d}-{flush_index:03d}.parquet"
+    path = out_dir / f"month={month}" / name
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         path.unlink()
@@ -246,11 +251,12 @@ def _process_chunk(
     chunk_id: int,
     start: int,
     end: int,
+    flush_rows: int = FLUSH_ROWS,
 ) -> dict[str, Any]:
     """Process one byte range of the NDJSON input and write its Parquet parts."""
     out_root = Path(out_dir)
     # A retried chunk must not leave stale parts behind.
-    for stale in out_root.glob(f"month=*/part-{chunk_id:05d}.parquet"):
+    for stale in out_root.glob(f"month=*/part-{chunk_id:05d}-*.parquet"):
         stale.unlink()
 
     con = _open_writer()
@@ -264,11 +270,21 @@ def _process_chunk(
         "bad_thread": 0,
     }
     written: list[str] = []
+    flush_index = 0
 
     def flush(month: str) -> None:
+        nonlocal flush_index
         if not buffers[month]:
             return
-        path = _flush(con, out_root, month, chunk_id, buffers[month])
+        path = _flush(
+            con,
+            out_root,
+            month,
+            chunk_id,
+            buffers[month],
+            flush_index=flush_index,
+        )
+        flush_index += 1
         written.append(str(path))
         buffers[month] = []
 
@@ -308,7 +324,7 @@ def _process_chunk(
                     month = row[2].strftime("%Y-%m")
                     month_buffer = buffers[month]
                     month_buffer.append(row)
-                    if len(month_buffer) >= FLUSH_ROWS:
+                    if len(month_buffer) >= flush_rows:
                         flush(month)
 
         for month in list(buffers):
@@ -370,6 +386,7 @@ def _new_manifest(
     out_dir: Path,
     chunks: list[tuple[int, int, int]],
     chunk_bytes: int,
+    flush_rows: int = FLUSH_ROWS,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc).isoformat()
     return {
@@ -378,6 +395,7 @@ def _new_manifest(
         "input_bytes": input_path.stat().st_size,
         "out_dir": str(out_dir),
         "chunk_bytes": chunk_bytes,
+        "flush_rows": int(flush_rows),
         "chunks_total": len(chunks),
         "chunk_stats": {},
         "chunks_failed": [],
@@ -403,13 +421,14 @@ def build_l0(
     chunk_bytes: int = DEFAULT_CHUNK_BYTES,
     resume: bool = True,
     max_chunks: int | None = None,
+    flush_rows: int = FLUSH_ROWS,
 ) -> dict[str, Any]:
     """Build the L0 Parquet warehouse from an expanded ROTLK NDJSON file.
 
     The input is split into byte ranges processed independently. Each chunk
-    writes `month=YYYY-MM/part-<chunk>.parquet` parts, so a crashed run can
-    resume without redoing completed chunks. The manifest records per-chunk
-    counts and is the source of truth for the build.
+    writes `month=YYYY-MM/part-<chunk>-<flush>.parquet` parts, so a crashed
+    run can resume without redoing completed chunks. The manifest records
+    per-chunk counts and is the source of truth for the build.
     """
     source = Path(input_path).expanduser()
     if not source.exists():
@@ -425,8 +444,9 @@ def build_l0(
         or manifest.get("input_bytes") != source.stat().st_size
         or manifest.get("chunk_bytes") != chunk_bytes
         or manifest.get("schema_version") != SCHEMA_VERSION
+        or manifest.get("flush_rows") != int(flush_rows)
     ):
-        manifest = _new_manifest(source, target, chunks, chunk_bytes)
+        manifest = _new_manifest(source, target, chunks, chunk_bytes, flush_rows)
         _atomic_json(manifest_path, manifest)
 
     done = set(manifest.get("chunk_stats", {}))
@@ -460,7 +480,9 @@ def build_l0(
 
     if workers <= 1 or len(pending) <= 1:
         for chunk_id, start, end in pending:
-            stats = _process_chunk(str(source), str(target), chunk_id, start, end)
+            stats = _process_chunk(
+                str(source), str(target), chunk_id, start, end, flush_rows
+            )
             record(chunk_id, stats)
             completed_now += 1
             log.info(
@@ -480,6 +502,7 @@ def build_l0(
                     chunk_id,
                     start,
                     end,
+                    flush_rows,
                 ): chunk_id
                 for chunk_id, start, end in pending
             }

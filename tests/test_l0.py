@@ -152,3 +152,25 @@ def test_build_l0_rerun_does_not_duplicate_posts(tmp_path):
     again = build_l0(source, out, workers=1, chunk_bytes=180, resume=True)
     assert again["status"] == "done"
     assert l0_stats(out)["posts"] == 5
+
+
+def test_build_l0_keeps_every_row_when_a_month_is_flushed_twice(tmp_path):
+    """A chunk that empties the same month twice must not overwrite itself."""
+    source = _write_fixture(tmp_path)
+    out = tmp_path / "l0"
+
+    manifest = build_l0(
+        source,
+        out,
+        workers=1,
+        chunk_bytes=4096,
+        resume=False,
+        flush_rows=2,
+    )
+
+    assert manifest["status"] == "done"
+    assert manifest["totals"]["posts"] == 5
+
+    files = sorted(out.glob("month=*/*.parquet"))
+    assert len(files) > 2, "the fixture must produce several parts"
+    assert l0_stats(out)["posts"] == 5
