@@ -16,7 +16,6 @@ from typing import Any, Iterable, Sequence
 from keklab.analytics.events import Event, EventTimeline
 from keklab.analytics.filters import Filters, where_clause
 from keklab.analytics.stats import (
-    MIN_CELL,
     attenuation_warning,
     cluster_bootstrap_distribution,
     wilson_interval,
