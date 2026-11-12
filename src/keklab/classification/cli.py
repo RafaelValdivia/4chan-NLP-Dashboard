@@ -226,6 +226,39 @@ def _cmd_classify_dataset(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_classify_store(args: argparse.Namespace) -> int:
+    """Store L1 predictions as partitioned Parquet for the analytics layer."""
+    import json as _json
+
+    from keklab.classification.predictions import write_predictions
+
+    def rows() -> Any:
+        with open(args.input, "r", encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    yield _json.loads(line)
+                except _json.JSONDecodeError as exc:
+                    raise ValueError(f"invalid JSON in {args.input}: {exc}") from exc
+
+    manifest = write_predictions(
+        rows(),
+        args.out,
+        model=args.model,
+        run_id=args.run_id,
+    )
+    if args.json:
+        print(_json.dumps(manifest, indent=2, ensure_ascii=False))
+    else:
+        print(f"rows: {manifest['rows']}")
+        print(f"rows_skipped: {manifest['rows_skipped']}")
+        print(f"months: {len(manifest['months'])}")
+        print(f"out: {args.out}")
+    return 0
+
+
 def add_classify_parser(subparsers: Any) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         "classify", help="Silver annotation and modeling dataset"
@@ -285,6 +318,16 @@ def add_classify_parser(subparsers: Any) -> argparse.ArgumentParser:
     p_dataset.add_argument("--out", required=True)
     p_dataset.add_argument("--json", action="store_true")
     p_dataset.set_defaults(func=_cmd_classify_dataset)
+
+    p_store = classify_sub.add_parser(
+        "store", help="Store L1 predictions as partitioned Parquet"
+    )
+    p_store.add_argument("--input", required=True, help="JSONL of predictions")
+    p_store.add_argument("--out", required=True, help="Output directory")
+    p_store.add_argument("--model", default="")
+    p_store.add_argument("--run-id", default="")
+    p_store.add_argument("--json", action="store_true")
+    p_store.set_defaults(func=_cmd_classify_store)
 
     return parser
 
