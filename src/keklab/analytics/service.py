@@ -636,15 +636,16 @@ class AnalyticsService:
         """Count the posts that mention any alias of each dictionary entry.
 
         The matching is lexical and case insensitive: it counts mentions, it
-        does not resolve them.
+        does not resolve them. One regex pass over the corpus does the work:
+        a filter per alias would scan the text once per alias.
         """
         where_sql, params = self._posts_where(filters)
-        entries: list[tuple[str, str]] = []
+        alias_to_entity: dict[str, str] = {}
         for entity, aliases in dictionary.items():
             for alias in aliases:
-                entries.append((entity, alias))
+                alias_to_entity[alias.lower()] = entity
 
-        if not entries:
+        if not alias_to_entity:
             return {
                 "data": [],
                 "provenance": self._provenance(
@@ -652,32 +653,40 @@ class AnalyticsService:
                 ),
             }
 
-        selects = []
-        query_params = list(params)
-        for _, alias in entries:
-            selects.append("count(*) FILTER (WHERE p.text_clean ILIKE ?)")
-            query_params.append(f"%{alias}%")
+        pattern = "|".join(
+            re.escape(alias) for alias in sorted(alias_to_entity, key=len, reverse=True)
+        )
         sql = f"""
-            SELECT {', '.join(selects)}
-            FROM {self._posts_source} p
-            {f'WHERE {where_sql}' if where_sql else ''}
+            SELECT value, count(*) AS n
+            FROM (
+                SELECT unnest(
+                    regexp_extract_all(lower(coalesce(p.text_clean, '')), ?)
+                ) AS value
+                FROM {self._posts_source} p
+                {f'WHERE {where_sql}' if where_sql else ''}
+            )
+            GROUP BY value
+            ORDER BY n DESC
         """
-        row = self._run(sql, query_params)[0]
+        rows = self._run(sql, [f"(?i)\\b(?:{pattern})\\b"] + list(params))
 
         totals: dict[str, int] = {}
-        for (entity, _), count in zip(entries, row):
+        for value, count in rows:
+            entity = alias_to_entity.get(str(value).lower())
+            if entity is None:
+                continue
             totals[entity] = totals.get(entity, 0) + int(count)
-        rows = [
+        rows_out = [
             {"entity": entity, "count": count}
             for entity, count in sorted(totals.items(), key=lambda item: -item[1])
             if count > 0
         ]
         posts = self._count_posts(filters)
         return {
-            "data": rows,
+            "data": rows_out,
             "provenance": self._provenance(
                 filters,
-                n=sum(row["count"] for row in rows),
+                n=sum(row["count"] for row in rows_out),
                 denominator=posts,
                 warnings=[],
                 extra={"entities_checked": len(dictionary)},
