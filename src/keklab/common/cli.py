@@ -22,6 +22,7 @@ from keklab.annotation.cli import add_annotate_parser
 from keklab.classification.cli import add_classify_parser
 from keklab.common.config import dump_config, load_config, resolve_config_path
 from keklab.common.logging import configure_logging, get_logger
+from keklab.training.cli import add_training_parser
 from keklab.common.registry import (
     VALID_KINDS,
     get_artifact,
@@ -303,6 +304,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     # silver annotation and modeling datasets
     add_classify_parser(sub)
+
+    # crash-safe fine-tuning/evaluation queue
+    add_training_parser(sub)
 
     sub.add_parser("version", help="Print the version").set_defaults(func=_cmd_version)
 
