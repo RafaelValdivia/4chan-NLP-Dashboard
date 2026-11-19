@@ -1,0 +1,149 @@
+{
+  "kind": "classical_baselines",
+  "models": {
+    "tfidf-lr": {
+      "features": 12029,
+      "train_rows": 3000
+    },
+    "bow-svm": {
+      "features": 12029,
+      "train_rows": 3000
+    },
+    "emb-lr": {
+      "components": 256,
+      "train_rows": 3000
+    }
+  },
+  "created_utc": "2026-11-13T04:09:05.414161+00:00",
+  "hyperparameters": {
+    "tfidf-lr": {
+      "vectorizer": "TfidfVectorizer",
+      "ngram_range": [
+        1,
+        2
+      ],
+      "max_features": 50000,
+      "min_df": 2,
+      "sublinear_tf": true,
+      "classifier": "OneVsRestClassifier(LogisticRegression)",
+      "C": 2.0,
+      "class_weight": "balanced",
+      "max_iter": 2000,
+      "toxicity_head": "LogisticRegression(4 classes, C=2.0, class_weight=balanced, max_iter=2000)"
+    },
+    "bow-svm": {
+      "vectorizer": "CountVectorizer",
+      "ngram_range": [
+        1,
+        2
+      ],
+      "max_features": 50000,
+      "min_df": 2,
+      "binary": true,
+      "classifier": "OneVsRestClassifier(LinearSVC)",
+      "C": 1.0,
+      "class_weight": "balanced",
+      "toxicity_head": null
+    },
+    "emb-lr": {
+      "vectorizer": "TfidfVectorizer",
+      "ngram_range": [
+        1,
+        2
+      ],
+      "max_features": 50000,
+      "min_df": 2,
+      "sublinear_tf": true,
+      "reducer": "TruncatedSVD",
+      "n_components": 256,
+      "scaler": "StandardScaler",
+      "classifier": "OneVsRestClassifier(LogisticRegression)",
+      "C": 1.0,
+      "class_weight": "balanced",
+      "max_iter": 2000,
+      "toxicity_head": null
+    }
+  },
+  "seed": 13,
+  "rows": {
+    "train": 3000,
+    "dev": 1000,
+    "test": 1000
+  },
+  "threshold_selection": {
+    "method": "per-label maximum F1 on dev",
+    "applied_to_test": false,
+    "source": "data/classification/reports/evaluation-dev.json",
+    "note": "Thresholds are not learned by the classifier; they are selected on dev."
+  },
+  "environment": {
+    "python": "3.12.3",
+    "venv": "/home/flynn/PyVenvs/NetworkAnalysis",
+    "scikit-learn": "1.9.0",
+    "numpy": "2.5.0",
+    "pandas": "3.0.3",
+    "scipy": "1.18.0",
+    "joblib": "1.5.3"
+  },
+  "git": {
+    "commit": "58443a3312fd77425d0fe42acb3e6f3af20c4766",
+    "tree_dirty_at_documentation": true
+  },
+  "data": {
+    "modeling_path": "data/classification/modeling/rotlk_5000.jsonl",
+    "modeling_sha256": "d8f10b2ace3590af91680d74383be94a54eb7fa99935a6235fe9cec29273f278",
+    "split_path": "data/classification/splits/rotlk_5000_threads.jsonl",
+    "split_sha256": "ad043bf0ed8e53f139ee53f90f27fd490bcd9e52c69c3f326d5e0eade8bd48fb",
+    "test_hash_path": "data/classification/splits/rotlk_5000_test.sha256",
+    "test_set_sha256": "afae38a9157c64197c83839812a4846918a4506f51c02c916c51ef6f8fde21b4"
+  },
+  "outputs": {
+    "predictions": {
+      "tfidf-lr/dev": {
+        "path": "data/classification/predictions/tfidf-lr/dev.jsonl",
+        "sha256": "ffaa8980f1bb0c21330c4030081fa1b7da643e8ae38a03a512a72b32872cf004"
+      },
+      "tfidf-lr/test": {
+        "path": "data/classification/predictions/tfidf-lr/test.jsonl",
+        "sha256": "0c6191efecf09e14261230b3c0f007c4dc55e1e8700692ae3da3c2de1454f04c"
+      },
+      "bow-svm/dev": {
+        "path": "data/classification/predictions/bow-svm/dev.jsonl",
+        "sha256": "caf212d4d27f18a51912995c90f97aa3238fa098534a07e370c0b285f3ad8b0f"
+      },
+      "bow-svm/test": {
+        "path": "data/classification/predictions/bow-svm/test.jsonl",
+        "sha256": "e5f410ae481699f8a74c736fec294d6748aef8cb46b38899c6a036160b766d4d"
+      },
+      "emb-lr/dev": {
+        "path": "data/classification/predictions/emb-lr/dev.jsonl",
+        "sha256": "d78fbc825b934ac69717ddb92e8c00401fb26f6a8991fb76fea3d4249c4cf327"
+      },
+      "emb-lr/test": {
+        "path": "data/classification/predictions/emb-lr/test.jsonl",
+        "sha256": "f72768fa541b6e4e8fe23594545fe775be1d06b81cdd01a11c4e05cc6cde78d3"
+      }
+    },
+    "evaluation_dev": {
+      "path": "data/classification/reports/evaluation-dev.json",
+      "sha256": "3399c32d64cd5ce2e6397427a194f6161fe25ee71e8fc76f1fd882a9767e5392"
+    },
+    "report": {
+      "path": "data/classification/reports/classical-baselines.md",
+      "sha256": "442997ab5432e9ceea15e8d6809140dc15d33405b7f66784854364ff2a6b153e"
+    }
+  },
+  "command": "PYTHONPATH=src /home/flynn/PyVenvs/NetworkAnalysis/bin/python -c \"from keklab.training import baselines_runner; import json; print(json.dumps(baselines_runner.run(), indent=2))\"",
+  "runtime": {
+    "recorded": false,
+    "note": "Wall-clock runtime was not instrumented."
+  },
+  "provenance": {
+    "execution": "direct invocation outside the persistent queue",
+    "reason": "queued baselines job depends on setup; setup is blocked by corrupt CUDA wheels",
+    "queue_job": "20261112164154-c637b2b2-baselines",
+    "test_scored": false,
+    "test_note": "Test predictions were generated but not evaluated; no evaluation-test.json exists."
+  },
+  "documented_utc": "2026-11-13T04:34:55.752519+00:00"
+}

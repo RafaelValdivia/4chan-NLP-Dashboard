@@ -1,0 +1,22 @@
+{
+  "attempts": 0,
+  "created_utc": "2026-11-12T16:41:54.958017+00:00",
+  "depends_on": [
+    "20261112164154-fc2f162b-laya"
+  ],
+  "id": "20261112164154-120041b1-laya",
+  "max_retries": 0,
+  "name": "laya-full-attempt",
+  "params": {
+    "epochs": 3,
+    "freeze_encoder": false,
+    "loss": "soft-ce",
+    "micro_batch": 1,
+    "optional": true,
+    "run": "laya-full"
+  },
+  "state": "pending",
+  "timeout_s": 43200,
+  "type": "laya",
+  "updated_utc": "2026-11-12T16:41:54.958019+00:00"
+}

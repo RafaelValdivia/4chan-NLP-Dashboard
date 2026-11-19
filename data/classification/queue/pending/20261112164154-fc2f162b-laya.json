@@ -1,0 +1,20 @@
+{
+  "attempts": 0,
+  "created_utc": "2026-11-12T16:41:54.957662+00:00",
+  "depends_on": [
+    "20261112164154-b8d1a458-export"
+  ],
+  "id": "20261112164154-fc2f162b-laya",
+  "max_retries": 1,
+  "name": "laya-frozen-softce",
+  "params": {
+    "epochs": 4,
+    "freeze_encoder": true,
+    "loss": "soft-ce",
+    "run": "laya-frozen-softce"
+  },
+  "state": "pending",
+  "timeout_s": 43200,
+  "type": "laya",
+  "updated_utc": "2026-11-12T16:41:54.957665+00:00"
+}

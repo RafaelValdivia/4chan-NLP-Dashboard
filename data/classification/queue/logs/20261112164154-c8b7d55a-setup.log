@@ -1,0 +1,9 @@
+=== 2026-11-12T16:42:09.437281+00:00 start setup attempt 1 ===
+job=20261112164154-c8b7d55a-setup type=setup params={}
+$ /home/flynn/PyVenvs/NetworkAnalysis/bin/python -m pip cache purge
+WARNING: No matching packages
+Files removed: 0
+$ /home/flynn/PyVenvs/NetworkAnalysis/bin/python -m pip install --disable-pip-version-check torch==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+Looking in indexes: https://download.pytorch.org/whl/cu121
+Collecting torch==2.5.1
+  Downloading https://download-r2.pytorch.org/whl/cu121/torch-2.5.1%2Bcu121-cp312-cp312-linux_x86_64.whl (780.4 MB)
