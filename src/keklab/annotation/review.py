@@ -231,6 +231,55 @@ def run_review(
     index = 0
     quit_requested = False
 
+    def commit(
+        decision: str,
+        frames: list[str] | None,
+        toxicity: int | None,
+        timestamp: datetime,
+        message: str,
+    ) -> None:
+        """Persist one resolved decision and advance to the next proposal.
+
+        Builds the review record, writes gold (only for accept/edit, the
+        decisions that carry final labels), appends the review log and
+        updates the in-memory latest-review index. Shared by all four
+        decision commands so the persistence side effects stay identical
+        across accept, edit, reject and skip.
+        """
+        nonlocal accepted, edited, rejected, skipped, index, reviews
+        review = build_review(
+            proposal,
+            reviewer=reviewer,
+            decision=decision,
+            final_frame_labels=frames,
+            final_toxicity=toxicity,
+            reviewed_utc=timestamp,
+        )
+        if decision in {"accept", "edit"}:
+            gold_store.upsert(
+                _gold_record(
+                    task,
+                    reviewer=reviewer,
+                    guideline_version=guideline_version,
+                    frames=frames or [],
+                    toxicity=toxicity or 0,
+                    annotated_utc=timestamp,
+                )
+            )
+        reviews = upsert_review(reviews, review)
+        write_reviews(reviews, reviews_path)
+        latest[proposal.proposal_id] = review
+        if decision == "accept":
+            accepted += 1
+        elif decision == "edit":
+            edited += 1
+        elif decision == "reject":
+            rejected += 1
+        else:
+            skipped += 1
+        index += 1
+        emit(message)
+
     while index < len(queue) and not quit_requested:
         proposal = queue[index]
         task = task_by_id[proposal.task_id]
