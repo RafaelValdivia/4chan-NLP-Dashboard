@@ -89,9 +89,9 @@ posts. Todavía no hay tareas, etiquetas plata ni split para esa muestra.
 
 ### Repositorio y datos
 
-- El contrato del prompt está vigente: `PROMPT_VERSION = v2`,
+- El contrato del prompt está vigente: `PROMPT_VERSION = v3`,
   `GUIDELINE_VERSION = v0.2`, hash
-  `30dc56899dfc77347c2c32cfbab67cb15569e3a8b3c87c472325b91565b01769`.
+  `ef251abee5137ab35ff1882817c97aee5bdcdac9c0ee52900afbbe60d68c995e`.
 - Taxonomía vigente: 16 marcos finos y 7 cabezas gruesas.
 - El pipeline `classification/` ya incluye backend, batch con sharding y
   reanudación, conversión a plata, export de dataset y manifiestos.
