@@ -1,4 +1,4 @@
-# Journal PLN — Entrada 25 (12-11-2026)
+# Journal PLN — Entrada 28 (12-11-2026)
 
 ## Contexto
 

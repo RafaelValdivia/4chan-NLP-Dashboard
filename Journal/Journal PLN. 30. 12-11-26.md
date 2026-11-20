@@ -1,4 +1,4 @@
-# Journal PLN. 23. 12-11-26
+# Journal PLN. 30. 12-11-26
 
 Hoy se documenta el diagnóstico de la búsqueda de texto sobre el corpus real y
 se cierra el hito con un journal nuevo.

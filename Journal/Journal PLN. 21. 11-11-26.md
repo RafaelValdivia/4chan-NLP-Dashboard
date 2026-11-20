@@ -1,234 +1,93 @@
-# Journal PLN. 21. 11-11-26
+# Journal PLN — Entrada 21 (11-11-2026)
 
-Hoy se decide reemplazar Streamlit por FastAPI + HTML/JS, y se escribe este
-journal **antes** de tocar el código. La razón es simple: el panel funciona,
-pero el modelo de ejecución de Streamlit ya mostró un fallo que no se arregla
-con un parche y que además deja al chatbot sin backend propio.
+## Contexto
 
-## 1. El síntoma
+Continuación de la entrada 20. Al ejecutar el plan de recuperación, la guardia
+de contexto se negó a arrancar: el prompt más largo necesitaba 10.773 tokens y
+cada slot tenía 8.192. Esta entrada documenta la investigación, las decisiones
+y la corrección adoptada.
 
-La búsqueda de texto libre sobre el corpus completo tarda unos 25 s. Mientras
-esa consulta corre, cualquier otra interacción de la página —cambiar un filtro,
-abrir otra sección, mandar un mensaje al chat— dispara un *rerun*. Ese rerun
-reutiliza la misma conexión DuckDB guardada en `st.session_state` y falla:
+## Hallazgo principal: el prompt duplicaba el post
 
-```text
-_duckdb.ResourceInUseException: Connection Error: connection is busy with another call
-```
+El prompt v2 enviaba `text_raw` **y** `text_clean`. Para el post problemático
+(`157832878`, arte Unicode/Braille) la atribución exacta de tokens es:
 
-El camino exacto es:
+| Componente | Tokens |
+|---|---:|
+| Plantilla fija (menú de marcos + reglas) | 825 |
+| `task_json` con raw + clean | 9.054 |
+| `task_json` solo clean | 4.327 |
+| `task_json` solo raw | 4.745 |
+| **Prompt completo, ambos campos** | **9.861** |
+| **Prompt completo, solo clean** | **5.134** |
 
-```text
-dashboard/views/explorar.py:32  →  service.search_posts
-src/keklab/analytics/service.py:257  →  AnalyticsService._run
-src/keklab/analytics/service.py:99  →  con.execute(...).fetchall()
-```
+Quitar `text_raw` basta para que el prompt quepa en 8.192. El mecanismo no es
+que el raw sea caro en tokens (en este post es más barato por carácter), sino
+que el post se enviaba **dos veces**.
 
-No es un bug de la consulta: es el modelo de Streamlit. Cada interacción
-vuelve a ejecutar el script entero, en un hilo distinto, y el `session_state`
-comparte un objeto que **no es seguro entre hilos**. Una conexión de DuckDB
-admite cursores concurrentes, pero no dos llamadas simultáneas sobre la misma
-conexión.
+## Otros factores identificados
 
-### Lo que esto enseña
+1. **Post degenerado.** Es arte Unicode/Braille: 2,11 tokens/carácter en clean
+   (1,47 en raw), frente a ~0,25 del inglés. Incluso sin raw cuesta 5.134
+   tokens, 4× el siguiente más pesado (1.287).
+2. **El cleaner deja `<wbr>`.** 63 ocurrencias en 16 de 5.000 posts
+   (`EXTRA_TAGS_RE` no incluye `<wbr>` y `strip_markup_plain` solo desescapa
+   entidades). También queda un `</kanye>`, que es contenido/juego y se
+   conserva a propósito. Ver `URGENT.md`.
+3. **Sobrecosto constante.** La plantilla fija son 825 tokens por petición.
+4. **Duplicación media.** Quitar raw ahorra 166 tokens/prompt de media (15,1 %)
+   y elimina ruido HTML (`<span>`, `&gt;`, `<br>`) para los 4.158 posts donde
+   raw ≠ clean.
+5. **Selección de muestra.** Admite posts de arte degenerado; es una decisión
+   de muestreo, no de limpieza.
+6. **Hueco de procedencia.** `prompt_sha256()` hasheaba solo
+   `PROMPT_TEMPLATE` + menús: no cubría `PROMPT_VERSION` (la plantilla conserva
+   el placeholder) ni la forma de `task_json`. Cambiar `render_prompt` sin
+   corregir esto habría dejado el hash igual y el manifiesto mentiría.
 
-- El problema no se resuelve "haciendo la consulta más rápida". Aunque baje a
-  2 s, dos reruns pueden solaparse.
-- El estado de la aplicación no puede ser un objeto de Python vivo. Tiene que
-  ser **serializable y reconstruible** en cada request.
-- Un panel que se re-ejecuta entero no es un backend: el chatbot necesita
-  endpoints, no una sesión de navegador.
+## Verificación de corpus
 
-## 2. La decisión
+Muestra de 500 prompts (top 100 por longitud + 400 aleatorios):
 
-**FastAPI + HTML plano + módulos ES + Plotly.** Sin build step, sin Node, sin
-framework de frontend.
+- Con ambos campos: 1/500 supera 8.192; máximo 9.861.
+- Solo clean: 0/500 supera 8.192; máximo 5.134.
 
-| Pieza | Elección | Motivo |
+## Decisiones
+
+| Decisión | Valor | Motivo |
 |---|---|---|
-| Backend | FastAPI + Uvicorn | Contrato HTTP explícito, validación, docs automáticas, `TestClient` para tests |
-| Frontend | HTML + CSS + ES modules | No hay web developer en el proyecto; un build step es deuda que nadie va a mantener |
-| Gráficos | Plotly servido desde el paquete instalado | Funciona sin internet; ya es dependencia |
-| Estado | Query string de la URL | Enlaces compartibles y reproducibles; el navegador es el dueño del estado |
-| Concurrencia | Una conexión por request + cursor propio | Aísla las consultas; no hay estado compartido entre hilos |
-| Auth | Ninguna | Herramienta de LAN, un solo analista |
+| Prompt | **v3, solo `text_clean`** | Elimina la duplicación y el ruido HTML; cabe en 8.192. |
+| Hash del prompt | Cubrir `PROMPT_VERSION` + campos de `task_json` | Cierra el hueco de procedencia. |
+| Etiquetas v2 | **No se reutilizan** | `task_id` incluye `prompt_version`; v3 cambia todos los ids. Se reetiquetan los 5.000 (~6,8 h). |
+| Contexto | Mantener `-c 8192 --parallel 1` | El peor caso v3 necesita ~6.046 tokens; sobran ~2.100. |
+| `<wbr>` | Se elimina en el cleaner y se re-deriva `text_clean` en 16 posts | Es ruido HTML y en v3 es el único texto que ve el modelo. |
+| `</kanye>` | Se conserva | Es contenido/juego del post, no markup del archivo. |
+| `content_hash` | Se recalcula solo en los 16 posts afectados | `content_hash = sha256(text_clean)`; cambia al cambiar el texto. |
+| Salida cruda | Archivo nuevo `rotlk_5000.v3.qwen3-8b-q4_k_m.raw.jsonl` | Evita mezclar filas v2 y v3; los shards v2 quedan como registro. |
+| Oro de 200 | Se diagnosticará con v3 | Debe usar el mismo prompt que la plata. |
 
-### Por qué no otro framework
+## Enmiendas al pre-registro
 
-- **Streamlit** ya falló por su modelo de rerun. No se arregla desde afuera.
-- **Dash** trae el mismo acoplamiento entre layout y callback, y un grafo de
-  callbacks que se vuelve difícil de razonar.
-- **Next/React** exige toolchain, bundler y alguien que lo mantenga. El
-  proyecto no lo tiene.
-- **HTML plano** obliga a escribir un poco más de JS, pero cada archivo se lee
-  de arriba a abajo y no hay magia que depurar.
+1. `docs/silver_classification_protocol.md`: el prompt usa solo `text_clean`
+   (antes decía `text_raw` y `text_clean`); `prompt_version = v3`;
+   `n_ctx = 8192`.
+2. `docs/evaluation_protocol.md`: el experimento E0 (crudo vs saneado) sigue
+   igual, porque el dataset exporta ambas representaciones; solo cambia el
+   prompt del maestro.
+3. `docs/handoff_llm_annotation.md`: actualizar versión y hash del prompt.
 
-## 3. Lo que se conserva
+## Ejecución
 
-La migración es de **framework**, no de semántica. Nada de lo siguiente se
-reinterpreta:
+1. `URGENT.md` con el problema del regex.
+2. Código: prompt v3, hash corregido, `<wbr>` fuera del cleaner.
+3. Re-derivar `text_clean`/`content_hash` en 16 posts y reconstruir tareas.
+4. Verificar hash y guardia de contexto con `doctor`.
+5. Reetiquetar los 5.000 con un solo cliente y supervisor de salud.
+6. Plata → split → dataset → diagnóstico de oro, en pasos posteriores.
 
-- `keklab.analytics`: `Filters`, predicados SQL, denominadores `all`/`labeled`,
-  Wilson, bootstrap por hilo, avisos de celda chica.
-- `Filters` sigue siendo la descripción serializable de la ventana.
-- La procedencia (`n`, `denominator`, `coverage`, `run_id`, filtros, avisos)
-  viaja en **cada** respuesta.
-- Los hitos de `configs/events.yaml` siguen siendo ground truth curado a mano,
-  no etiquetas del modelo.
-- Las 16 etiquetas finas y las 7 cabezas no cambian.
-- Las cinco herramientas del chat (`consultar`, `graficar`, `clasificar`,
-  `resumir`, `extraer_entidades`) y su enrutado por reglas se mudan tal cual,
-  con la misma forma de resultado.
+## Estado de git
 
-Las tres decisiones que se reemplazan son solo de framework: Streamlit como
-host, siete secciones como navegación interna y el chat dentro de la sesión.
-La analítica subyacente queda intacta.
-
-## 4. Lo que cambia
-
-### Backend
-
-Nuevo paquete `src/keklab/api/`:
-
-```text
-settings.py    KEKLAB_L0_GLOB, KEKLAB_PREDICTIONS, KEKLAB_EVENTS, KEKLAB_WEB_DIR
-app.py         create_app(), endpoints y montaje de estáticos
-cli.py         keklab api serve --host --port
-```
-
-Contrato inicial:
-
-| Método | Ruta | Devuelve |
-|---|---|---|
-| GET | `/api/meta` | corpus disponible, predicciones, niveles, hitos, rangos |
-| GET | `/api/overview` | volumen y forma de la ventana |
-| GET | `/api/volume` | serie de volumen |
-| GET | `/api/frames` | distribución de marcos |
-| GET | `/api/toxicity` | distribución ordinal |
-| GET | `/api/series` | cuotas por periodo, o volumen si no hay L1 |
-| GET | `/api/search` | búsqueda literal |
-| GET | `/api/compare` | ventana activa contra la anterior |
-| GET | `/api/events` | hitos del rango |
-| GET | `/api/quality` | manifiesto L0 y cobertura |
-| GET | `/api/health` | vivo |
-| POST | `/api/chat` | herramienta + texto + tabla + figura + procedencia |
-
-Cada `GET` devuelve `{"data": ..., "provenance": ...}` **tal cual lo produce
-el servicio**. La API no recalcula ni redondea: si el número está mal, está mal
-en un solo lugar.
-
-Los errores de filtro (fecha inválida, nivel desconocido) vuelven como `400`
-con un mensaje en español; la falta de corpus, como `503`. El front nunca
-recibe un stack trace.
-
-Por decisión de diseño, `/api/series` elige en el servidor: si hay L1 devuelve
-cuotas de marcos; si no, volumen con un aviso explícito y un campo `mode`.
-Así el front no tiene que saber si el clasificador corrió.
-
-### Concurrencia y poda de particiones
-
-Dos arreglos que van en la capa compartida, no en la API:
-
-1. **Cursor por consulta.** `_run` y `has_predictions` toman
-   `con.cursor()`, consultan y cierran. `SET GLOBAL TimeZone='UTC'` se aplica
-   una vez para que los cursores hereden UTC. Un test de concurrencia lanza dos
-   consultas solapadas y exige que ambas terminen.
-2. **Poda por mes.** Si la fuente es un glob de Parquet, se usa
-   `read_parquet(..., hive_partitioning=true)` y se agrega un predicado sobre
-   la columna de partición `month`. Una consulta de un mes pasa de 9,3 s a
-   0,0 s. El predicado solo se agrega cuando la fuente es glob: las tablas de
-   los fixtures no tienen `month`.
-
-Además, `previous_window` y `compare_with_previous` bajan de `dashboard/state.py`
-al servicio, para que la comparación histórica sea una operación del backend y
-no lógica de la interfaz.
-
-### Frontend
-
-`web/` sin build:
-
-```text
-index.html
-css/styles.css
-js/api.js        fetch + AbortController
-js/state.js      filtros ↔ query string
-js/ui.js         helpers de DOM, tablas, procedencia, CSV
-js/charts.js     figuras Plotly
-js/main.js       router de vistas
-js/views/        summary, frames, toxicity, timeline, explore, quality, chat
-```
-
-Reglas de la interfaz:
-
-- **La URL es el estado.** Fechas, nivel, denominador, granularidad, marcos y
-  búsqueda se leen y escriben en el query string. Un enlace reproduce la vista.
-- **`AbortController` cancela la request anterior.** Si el analista cambia de
-  filtro mientras carga, la respuesta vieja no pisa la nueva.
-- **Los avisos de procedencia no se esconden.** Van debajo de cada vista, con
-  `n`, denominador, `run_id` y advertencias.
-- **Sin L1 no se inventan cuotas.** Marcos, toxicidad y línea de tiempo avisan
-  y muestran volumen, igual que hoy.
-- **Plotly se sirve local** desde `plotly/package_data/plotly.min.js` (4,8 MB).
-  No hay CDN: el panel tiene que funcionar sin internet.
-
-## 5. Plan de migración
-
-El orden importa: primero el contrato, después la interfaz.
-
-1. **Journal y commit de docs.** Este archivo, solo.
-2. **Capa compartida.** Cursor por consulta, poda por partición,
-   `compare_with_previous`, y sus tests. Sin tocar la API todavía.
-3. **Mudanza del chat.** `dashboard/chat/tools.py` →
-   `src/keklab/chat/tools.py`; el panel viejo importa desde la ubicación nueva
-   hasta que se retire.
-4. **API.** `settings.py`, `app.py`, `cli.py`, `keklab api serve`.
-5. **Tests de API.** `TestClient` sobre un L0 de fixture: cada endpoint, el
-   chat, el 400 de un filtro inválido, el 503 sin corpus y la concurrencia.
-6. **Frontend.** Las siete vistas contra la API, con paridad de números y de
-   procedencia.
-7. **Retiro de Streamlit.** Cuando el front alcance paridad se borra
-   `dashboard/` y `tests/test_dashboard.py`; quedan `tests/test_chat_tools.py`
-   y `tests/test_api.py`.
-8. **Dependencias y docs.** `requirements.txt` y `pyproject.toml` cambian:
-   entran `fastapi` y `uvicorn`, sale `streamlit`; `docs/dashboard.md` y el
-   README describen el nuevo arranque.
-9. **Verificación sobre el corpus real.** Los mismos números de journal 20 y
-   los tiempos de la poda por mes.
-10. **Commit de código y tests por separado del journal y de los datos.**
-
-## 6. Riesgos y mitigaciones
-
-| Riesgo | Mitigación |
-|---|---|
-| El front repite lógica del backend | Cada vista solo pinta `data` y `provenance`; no hay SQL ni cálculos en JS |
-| La API cambia y rompe el chat | El contrato es el mismo `ToolResult` que ya usa el panel; los tests fijan la forma |
-| Dos requests pisan el DOM | `AbortController` con un contador de generación por vista |
-| El servidor se cae con el corpus ausente | `/api/meta` y `/api/health` responden; las vistas muestran el 503 como aviso |
-| Se pierde la reproducibilidad de un enlace | Todos los filtros viven en la URL; se prueba ida y vuelta |
-| El panel deja de funcionar sin internet | Plotly local, sin fuentes ni CDN externos |
-
-## 7. Lo que no se hace en esta migración
-
-- No se agrega autenticación ni multiusuario: es una herramienta de LAN.
-- No se agrega un LLM al chat: el enrutado sigue siendo por reglas.
-- No se toca el clasificador, ni el oro, ni el esquema de etiquetas.
-- No se descarga la ventana reciente de 4plebs.
-- No se inventan cuotas cuando falta L1.
-- No se borra Streamlit hasta que el front tenga paridad verificada.
-
-## 8. Estado de git
-
-- `5ccfa4a`: verificación del panel sobre el corpus real.
-- `dcc62dc`: menciones de entidades en una sola pasada.
-- `c66b819`: verificación de L0 en journal 20.
-- `87fee6f`: timestamps UTC y fallback a volumen en la serie.
-
-Este journal se commitea solo, antes de cualquier cambio de código.
-
-## 9. Siguiente paso
-
-1. Implementar la capa compartida (cursor, poda, comparación) con tests.
-2. Mudar las herramientas del chat y levantar la API con `TestClient`.
-3. Construir el front por vistas y verificar paridad de números.
-4. Retirar Streamlit, actualizar dependencias y docs, y correr la suite
-   completa sobre el corpus real.
+Pendiente de commit. Cambios nuevos de esta entrada: `URGENT.md`, esta entrada,
+`src/keklab/annotation/prompts.py`, `src/keklab/formal/markup_regex.py`,
+`tests/test_annotation_proposal.py`, docs de protocolo, muestra y tareas
+reconstruidas.

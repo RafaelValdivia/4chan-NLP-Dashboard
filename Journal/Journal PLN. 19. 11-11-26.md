@@ -2,197 +2,203 @@
 
 ## Contexto
 
-La entrada 18 dejó lista la infraestructura de clasificación plata y el
-pre-registro del maestro. Esta entrada cierra dos frentes que quedaron
-abiertos: la muestra real de 5.000 posts y la arquitectura del dashboard.
-La muestra se generó, se auditó y **falló un criterio del protocolo**; la
-arquitectura se diseñó completa a partir de los ground truths del proyecto.
+Continuación de la entrada 18. El objetivo de la sesión fue dejar listo el
+maestro Qwen para etiquetar la muestra plata de 5.000 posts y verificar si el
+entorno local permite además entrenar GLiNER y Laya. No se modificó código en
+esta sesión: se auditó el entorno, los modelos y los artefactos existentes, y se
+tomaron las decisiones operativas para la corrida.
 
-No se entrenó ningún clasificador ni se construyó todavía el dashboard.
+La muestra `data/classification/samples/rotlk_5000.jsonl` ya existe con 5.000
+posts. Todavía no hay tareas, etiquetas plata ni split para esa muestra.
 
-## Muestra de 5.000: ejecución y auditoría
+## Decisiones tomadas
 
-### Ejecución
+| Decisión | Valor | Motivo |
+|---|---|---|
+| Entorno Python | `~/PyVenvs/NetworkAnalysis` | Ya tiene torch 2.12.1+cu130 con CUDA, transformers, sklearn, sentence-transformers, accelerate, safetensors y pytest. Evita reinstalar la pila ML y ahorra disco. |
+| Backend del maestro | `llama-server` por HTTP (API compatible con OpenAI) | El binario Vulkan ya funciona y soporta JSON schema, plantilla jinja y reasoning off. No requiere compilar `llama-cpp-python`. |
+| Thinking de Qwen | Desactivado explícitamente con `enable_thinking=false` | El sufijo `/no_think` no es fiable con esta plantilla; en la prueba el modelo entró en modo thinking. |
+| Hash de Qwen | Postergado | El usuario verificó el shasum y pidió no bloquear la corrida por la discrepancia. No se redescarga el modelo. |
+| Fine-tuning de Qwen | No se hace ahora | Qwen es el maestro; 200 posts de oro son insuficientes para ajustarlo y la plata es su propia salida. La corrida usa prompting y gramática JSON. |
+| GLiNER y Laya | Fine-tuning diferido | No hay checkpoints PyTorch completos locales ni runtime suficiente. No se descargan modelos. |
+| Entrega de fine-tuning | Exportar datasets ahora; entrenadores cuando existan los pesos locales | Permite avanzar con la clasificación sin depender de descargas. |
+| Smoke test | 50 posts antes de los 5.000 | Exigido por el pre-registro de plata. |
+| Oro de 200 | Solo diagnóstico externo | No entrena, no corrige y no bloquea la plata. |
+| Muestra plata | Usar la muestra existente de 5.000 | Ya fue generada; no hace falta volver a montar ROTLK para muestrear. |
+| Descargas de modelos | Prohibidas | Se trabaja solo con los artefactos locales. |
 
-```text
-keklab annotate sample --source rotlk \
-  --dataset /run/media/flynnso/Archivos/pol_0616-1119_labeled.tar.zst \
-  --start 2016-06-01T00:00:00Z --end 2019-11-01T23:59:59Z \
-  --random 5000 --targeted 0 --seed 17 \
-  --out data/classification/samples/rotlk_5000.jsonl
-```
+## Verificaciones realizadas
 
-Resultado: **5.000 samples, 100 % `reason=random`**, en **2.049 s (34,1 min)**
-sobre 3.397.911 hilos y 134.529.233 posts. El tiempo confirma que el costo está
-en la pasada completa del dump y no en la cantidad de posts elegidos.
+### Entorno Python
 
-Archivo: `data/classification/samples/rotlk_5000.jsonl`, 6.216.637 bytes,
-`sha256 3186e1e7eec5c37620d973aea0552a8683c00fbee843cdf1cc8d90607387f195`.
+- Existen `~/PyVenvs/LanguageProcessing`, `~/PyVenvs/NetworkAnalysis` y
+  `~/PyVenvs/NeuralNetworks`. No existe `~/PyVenvs/NNnPLN`.
+- `NetworkAnalysis` tiene Python 3.12.3, torch 2.12.1+cu130 con CUDA
+  disponible, transformers 5.12.1, sklearn 1.9.0, sentence-transformers 5.6.0,
+  accelerate 1.14.0, safetensors, pandas 3.0.3, PyYAML, lark y pytest.
+- Faltan en `NetworkAnalysis`: `keklab` (no instalado), `duckdb`, `tenacity`,
+  `zstandard`, `gliner`, `datasets`, `peft`, `gguf` y `llama_cpp`.
+- `NeuralNetworks` carece de pytest/duckdb; `LanguageProcessing` carece de la
+  pila ML. Ningún entorno está completo para el proyecto.
 
-### Auditoría
+### llama.cpp
 
-Pasan:
+- Build Vulkan `b12255` en
+  `/home/flynn/llama-local/vulkan/extracted/llama-b12255`.
+- `llama-cli` carga `models/gguf/Qwen3-8B-Q4_K_M.gguf` en la GTX 1070 Ti por
+  Vulkan: aproximadamente 64 tok/s de prompt y 36 tok/s de generación, salida
+  correcta.
+- `llama-server` soporta `--jinja`, `--reasoning off`, `--json-schema`,
+  `--chat-template-kwargs` y `--pooling`.
+- `llama-cpp-python` no está instalado en ningún venv. La decisión de usar
+  `llama-server` por HTTP evita esa dependencia.
 
-- 5.000 filas, 5.000 `post_id` únicos, 5.000 `thread_id` únicos.
-- 0 `text_clean` vacíos.
-- 0 posts fuera de la ventana exacta.
-- 42 meses calendario (2016-06 a 2019-11), cuotas mensuales 119–120.
-- `stratum.month` coincide con el mes del timestamp en todos los casos.
-- `source=kek`, `period=hist_2016_2019`.
-- 0 warnings durante la pasada.
+### Integridad de modelos
 
-Falla:
+- `DEFAULT_LLM_MODEL` apunta a `models/gguf/qwen3-8b-q4_k_m.gguf`, pero el
+  archivo real es `models/gguf/Qwen3-8B-Q4_K_M.gguf` (diferencia de
+  mayúsculas).
+- SHA256 real de Qwen: `d98cdcbd03e1...`; el pre-registro esperaba
+  `90962c51b3...`. La discrepancia queda postergada por decisión del usuario.
+- `models/SHA256SUMS` está actualmente vacío en el working tree; el usuario
+  indicó que ya verificó el shasum.
+- Laya:
+  - `laya-Q8_0.gguf` es un encoder ModernBERT-large de 395M parámetros,
+    28 capas, hidden 1024, cuantización Q8_0.
+  - `laya-head.safetensors` contiene solo la cabeza (`act_head`, `head`,
+    `scorer`, `type_emb`, `temperature`), no el encoder.
+  - `/home/flynn/modelos_originales/laya-base/model.safetensors` está truncado:
+    mide 1.048.576 bytes, pero su cabecera describe offsets hasta
+    ~842.587.666 bytes. `safe_open` falla con “incomplete metadata, file not
+    fully covered”.
+  - Consecuencia: no se puede hacer fine-tuning completo de Laya sin un
+    checkpoint PyTorch completo local.
+- GLiNER:
+  - `gliner-deberta-q8_0.gguf` declara `general.architecture = gliner`.
+  - `llama.cpp` b12255 no puede cargarlo: “unknown model architecture:
+    'gliner'”.
+  - El paquete `gliner` no está en ningún venv y no hay checkpoint PyTorch
+    local de `urchade/gliner_medium-v2.1` en la caché de Hugging Face, la caché
+    de pip ni las carpetas del proyecto.
+  - Consecuencia: sin runtime/checkpoint local no se puede ejecutar ni
+    entrenar GLiNER.
+- Supervisión de GLiNER: la plata es multi-label a nivel de post, pero GLiNER
+  espera spans. La evidencia del LLM es una lista plana, no está asociada a
+  cada marco. Se puede derivar supervisión débil usando la evidencia como span
+  del marco correspondiente, pero es una aproximación.
 
-- **64 filas con `content_hash` duplicado** (y 64 con `text_clean` duplicado):
-  27 grupos, 91 filas implicadas. Son copypasta en hilos distintos. El
-  protocolo exige 0 duplicados porque el split es por `thread_id`: el mismo
-  texto puede caer en train y en test y filtrar información.
+### Repositorio y datos
 
-Los grupos son posts degenerados, no copypasta largos:
+- El contrato del prompt está vigente: `PROMPT_VERSION = v3`,
+  `GUIDELINE_VERSION = v0.2`, hash
+  `ef251abee5137ab35ff1882817c97aee5bdcdac9c0ee52900afbbe60d68c995e`.
+- Taxonomía vigente: 16 marcos finos y 7 cabezas gruesas.
+- El pipeline `classification/` ya incluye backend, batch con sharding y
+  reanudación, conversión a plata, export de dataset y manifiestos.
+- La suite documentada en la entrada 18 es de 155 pruebas.
+- Existe `data/classification/samples/rotlk_5000.jsonl` con 5.000 filas y
+  6.216.637 bytes.
+- No existen `data/classification/tasks/`, `silver/` ni `splits/` para la
+  muestra de 5.000.
+- El dump ROTLK externo no está montado, pero la muestra de 5.000 ya fue
+  generada, así que no bloquea la corrida.
+- El disco raíz tiene ~3,9 GB libres; suficiente para inferencia, ajustado para
+  fine-tuning de modelos grandes.
 
-| Texto | Hilos | Meses |
-|---|---:|---|
-| `bump` | 15 | 2016-07 a 2019-08 |
-| `kek` | 6 | 2016-07 a 2018-12 |
-| `?` | 4 | 2016-06 a 2018-09 |
-| `RARE` | 2 | 2016-06 |
-| `Thoughts?` | 3 | 2016-08 a 2019-05 |
+## Bloqueos identificados
 
-El sampler solo deduplicaba por `post_id` y `thread_id`, no por contenido
-(hallazgo A2 de la auditoría de código). Además, si un mes quedaba corto tras
-descartar duplicados, no había redistribución (A3).
+1. **Laya no tiene pesos PyTorch completos utilizables.** El GGUF solo sirve
+   para inferencia o para extraer features congeladas; el `model.safetensors`
+   local está truncado. El fine-tuning completo queda esperando un checkpoint
+   local completo.
+2. **GLiNER no tiene runtime ni checkpoint local.** El GGUF no carga en
+   `llama.cpp` y el paquete/checkpoint PyTorch no están instalados.
+3. **La supervisión de spans para GLiNER es débil.** Solo se pueden derivar
+   spans de los marcos que traigan evidencia verbatim.
+4. **Discrepancia de hash de Qwen.** Postergada explícitamente; no se
+   redescarga el modelo.
+5. **Espacio en disco.** El fine-tuning de ModernBERT/Laya puede no caber en
+   los 3,9 GB libres; se necesitará almacenamiento externo cuando se retome.
 
-### Decisión: congelar la muestra, deduplicar al exportar
+## Plan de ejecución acordado
 
-La muestra ya estaba siendo etiquetada por `Qwen3-8B-Q4_K_M` en otra máquina.
-Regenerarla habría invalidado ese trabajo (30–45 h de GPU), así que **no se
-remuestrea**:
+1. Instalar las dependencias faltantes del proyecto en
+   `~/PyVenvs/NetworkAnalysis`:
 
-- `data/classification/samples/rotlk_5000.jsonl` queda **congelado**.
-- El etiquetado sigue por `post_id`, sin interrupciones.
-- La deduplicación por `content_hash` se aplica en el **export del dataset**
-  (`build_modeling_rows`): colapsa cada grupo a un representante determinista
-  (el `post_id` numérico menor) y reporta `duplicate_groups` y
-  `duplicate_rows_removed`. El split sigue siendo por `thread_id`, pero sobre
-  filas ya sin texto repetido.
-- El dataset esperado ronda las **4.936 filas** (64 etiquetas de posts vacíos
-  se descartan), y el reporte declara la diferencia.
-- Se corrigió igual `sample_rotlk_stream` para muestreos futuros:
-  deduplicación global por `content_hash` y redistribución del faltante mensual
-  entre meses con candidatos sobrantes. No se vuelve a correr sobre el dump
-  histórico.
-- `docs/silver_classification_protocol.md` registra la enmienda: la garantía de
-  “0 duplicados” pasa del muestreo al export del dataset.
+   ```bash
+   ~/PyVenvs/NetworkAnalysis/bin/python -m pip install -e ".[dev,ingest,formal]"
+   ```
 
-## Arquitectura del dashboard
+   Instalar `gliner`, `datasets`, `peft` y `gguf` solo cuando existan los
+   checkpoints locales correspondientes.
 
-### Decisiones tomadas
+2. Implementar `LlamaServerBackend` contra `/v1/chat/completions`:
+   - `enable_thinking=false` y `--reasoning off`;
+   - `response_format` con JSON schema;
+   - parámetros de servidor y modelo registrados en el manifiesto;
+   - preflight/doctor para verificar modelo, hash, prompt, backend y contexto.
 
-| Decisión | Valor |
-|---|---|
-| Alcance inicial | Solo histórico ROTLK 2016–2019; `period` queda en el esquema para sumar 4plebs después. |
-| UI | Streamlit, uso local, sin autenticación. |
-| Gráficos | Plotly. |
-| Chat | Página dedicada que hereda los filtros activos. |
-| Marcos | Los 16 finos como checkboxes; las 7 cabezas se derivan al vuelo. |
-| Buscador | Búsqueda libre permitida, implementada como módulo removible. |
-| Eventos | `events.yaml` curado a mano como ground truth; extracción automática futura como mejora opcional. |
-| Backend | Sin FastAPI en el MVP: Streamlit importa la capa de servicios en proceso. |
+3. Auditar la muestra de 5.000:
 
-### Tres niveles de datos
+   ```bash
+   keklab annotate audit \
+     --input data/classification/samples/rotlk_5000.jsonl \
+     --start 2016-06-01T00:00:00Z \
+     --end 2019-11-01T23:59:59Z --json
+   ```
 
-| Nivel | Contenido | Ubicación | Rol |
-|---|---|---|---|
-| L0 | 134,5 M posts canónicos en Parquet por mes | disco externo | volumen, actividad, buscador, denominadores |
-| L1 | predicciones del modelo barato sobre L0 | disco externo | marcos y toxicidad del dashboard |
-| L2 | 5.000 plata + 200 oro | repo | entrenar y evaluar; nunca denominador |
+   Verificar 5.000 posts únicos, 5.000 hilos únicos, 0 textos vacíos, 0 hashes
+   duplicados y cobertura temporal correcta.
 
-L0 no guarda `raw_html`; se recupera del dump si hace falta. Estimado: 12–18 GB.
-El disco que contiene el `.tar.zst` tiene espacio suficiente.
+4. Construir las tareas ciegas y verificar el hash del prompt:
 
-La razón de L0 es doble: el buscador libre necesita algo que indexar, y los
-agregados del dashboard necesitan denominadores reales. Sobre la muestra de
-5.000 cada mes tendría ~120 posts y los intervalos de confianza taparían
-cualquier tendencia. El LLM no procesa el corpus completo: entrena sobre la
-plata y el modelo barato se aplica a L0.
+   ```bash
+   keklab annotate ai task \
+     --input data/classification/samples/rotlk_5000.jsonl \
+     --out data/classification/tasks/rotlk_5000.jsonl
+   ```
 
-### Capas
+5. Correr el smoke test de 50 posts con el backend HTTP y guardar manifiesto.
+   Criterios de corte: 100 % JSON válido tras un reintento, menos de 2 % de
+   etiquetas inválidas, sin OOM y tiempo proyectado aceptable.
 
-```text
-L0/L1 Parquet -> keklab.analytics -> app/ (Streamlit)
-                          \-------> keklab/chat/ (tools)
-```
+6. Si el smoke pasa, correr los 5.000 en shards con reanudación:
 
-`analytics` es la única fuente de verdad: filtros, agregados, estadística,
-series y búsqueda. La UI no reimplementa cálculos y el chatbot invoca las
-mismas funciones. Si más adelante se agrega una API o un frontend distinto,
-es un wrapper sobre esta capa.
+   ```bash
+   keklab classify llm \
+     --tasks data/classification/tasks/rotlk_5000.jsonl \
+     --out data/classification/llm/raw/rotlk_5000.qwen3-8b-q4_k_m.raw.jsonl \
+     --backend llama_server --shard 1/4 --n-ctx 2048 --n-gpu-layers -1 \
+     --manifest data/classification/manifests/qwen3-shard-1.json
+   ```
 
-### Páginas
+7. Convertir la salida cruda a plata, congelar el split por hilo y exportar el
+   dataset de modelado.
 
-1. Resumen: KPIs, estado del run, cobertura y advertencias.
-2. Marcos: 16 finos, 7 cabezas, co-ocurrencia y evolución.
-3. Toxicidad: niveles 0–3, evolución y cruce con marcos.
-4. Línea de tiempo: serie mensual con marcadores de `events.yaml`.
-5. Explorar: búsqueda libre y detalle con contexto.
-6. Calidad: oro 200, test-retest, imitación de plata y deriva.
-7. Chat: página dedicada, consciente de los filtros.
-8. Comparación: oculta tras `ENABLE_COMPARISON=false` hasta tener 4plebs.
+8. Correr Qwen sobre los 200 posts de oro y reportar el diagnóstico por
+   separado. No se usa para entrenar ni para seleccionar modelos.
 
-### Reglas de la capa analítica
-
-| Decisión | Valor |
-|---|---|
-| Denominador por defecto | % de todos los posts del período, incluidos `none`/`unclear`. |
-| Alternancia | Toggle explícito “sobre posts etiquetados”. |
-| Incertidumbre | Wilson y bootstrap por `thread_id`. |
-| Celdas chicas | `n < 30` atenuadas con `n` visible. |
-| Ventanas | Comparaciones de igual longitud cuando exista el período reciente. |
-| Provenance | Toda respuesta lleva filtros, `n`, denominador, `run_id` y advertencias. |
-
-### Buscador removible
-
-El buscador libre vive solo en `app/pages/5_Explorar.py` y
-`keklab/analytics/posts.py`, detrás de `ENABLE_POST_EXPLORER`. Nada más depende
-de esas piezas: borrarlo es eliminar esos archivos y el flag, sin tocar
-agregados, chat ni tests. Se incluye un banner de advertencia de contenido.
-
-### Chat
-
-Herramientas sobre `analytics`: `consultar`, `graficar`, `clasificar`,
-`resumir`, `extraer_entidades`. Sin SQL libre. Cada respuesta cita `n`,
-intervalo y `run_id`. Si el LLM local no está disponible, degrada a un
-constructor determinista de consultas.
-
-### Eventos
-
-`events.yaml` versionado con `date`, `name`, `description`, `source_url` y
-`show_by_default`. Se carga como tabla `events` y se dibuja como líneas
-verticales. No son etiquetas del modelo. La extracción automática desde alguna
-fuente externa queda como mejora posterior; si se implementa, se evalúa si
-reemplaza o complementa al YAML.
+9. Exportar datasets para GLiNER (spans débiles desde evidencia) y para
+   Laya/ModernBERT (multi-label de marcos y toxicidad). Los entrenadores quedan
+   implementados y listos para ejecutarse cuando existan los pesos locales.
 
 ## Lo que no se hizo
 
-- No se remuestreó la muestra: se congeló a propósito para no invalidar el
-  etiquetado en curso.
-- No se construyó L0 ni `keklab.analytics`.
-- No se escribió ninguna página de Streamlit.
-- No se entrenó el baseline ni se aplicó ningún modelo a L0.
-- No se descargó la ventana reciente de 4plebs.
-- No se instaló `llama-cpp-python` ni se corrió el maestro.
+- No se modificó código de producción.
+- No se instalaron dependencias todavía.
+- No se corrió el smoke test de 50 posts.
+- No se generaron tareas, plata, split ni dataset para los 5.000.
+- No se ejecutó el diagnóstico contra los 200 de oro.
+- No se implementaron los entrenadores de GLiNER/Laya.
+- No se descargó ningún modelo.
 
 ## Siguiente paso
 
-1. Cuando termine el etiquetado, exportar el dataset y verificar que reporta
-   `duplicate_groups=27` y `duplicate_rows_removed=64`.
-2. Construir L0 en el disco externo.
-3. Implementar `keklab.analytics` con DB de fixture y tests.
-4. Páginas 1–4 de Streamlit.
-5. Buscador, calidad y chat.
+Instalar las dependencias del proyecto en `NetworkAnalysis` e implementar el
+backend HTTP de `llama-server` con su preflight. Después, auditar la muestra de
+5.000 y correr el smoke test de 50 posts.
 
 ## Estado de git
 
-La corrección de código y sus tests quedaron en `44ed38f`. Esta entrada y la
-enmienda al protocolo quedaron en `df57494`. La muestra de 5.000 no se modificó:
-sigue siendo el archivo de `7ee0099`.
+Esta entrada es el único cambio de la sesión. No se modificó código ni se
+tocaron los artefactos de datos.

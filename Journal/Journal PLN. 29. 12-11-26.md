@@ -1,4 +1,4 @@
-# Journal PLN. 22. 12-11-26
+# Journal PLN. 29. 12-11-26
 
 Hoy se cierra la migración del panel: se verificó el frontend nuevo contra el
 corpus real, se retira Streamlit y se actualizan dependencias y documentación.
