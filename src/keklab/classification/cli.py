@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from keklab.annotation.prompts import prompt_manifest, render_prompt
 from keklab.annotation.store import (
     load_annotations,
     load_samples,
@@ -17,9 +18,14 @@ from keklab.annotation.store import (
     write_annotations,
 )
 from keklab.annotation.splits import read_split_manifest
-from keklab.classification.backends import FakeBackend, LlamaCppBackend
+from keklab.classification.backends import (
+    FakeBackend,
+    LlamaCppBackend,
+    LlamaServerBackend,
+)
 from keklab.classification.batch import load_raw_rows, run_batch
 from keklab.classification.dataset import export_dataset
+from keklab.classification.errors import BackendError
 from keklab.classification.grammar import output_json_schema
 from keklab.classification.manifest import (
     git_commit,
@@ -71,6 +77,19 @@ def _cmd_classify_llm(args: argparse.Namespace) -> int:
 
     if args.backend == "fake":
         backend: Any = _fake_backend()
+    elif args.backend == "llama_server":
+        backend = LlamaServerBackend(
+            args.model,
+            base_url=args.base_url,
+            n_ctx=args.n_ctx,
+            n_batch=args.n_batch,
+            n_gpu_layers=args.n_gpu_layers,
+            temperature=args.temperature,
+            seed=args.seed,
+            max_tokens=args.max_tokens,
+            disable_thinking=not args.allow_thinking,
+            timeout=args.server_timeout,
+        )
     else:
         backend = LlamaCppBackend(
             args.model,
@@ -84,6 +103,23 @@ def _cmd_classify_llm(args: argparse.Namespace) -> int:
             verbose=args.verbose,
         )
 
+    context_guard: dict[str, Any] | None = None
+    if args.backend == "llama_server" and not args.skip_context_guard:
+        prompts = [render_prompt(task) for task in tasks]
+        try:
+            context_guard = backend.context_report(prompts)
+        except BackendError as exc:
+            raise SystemExit(f"context guard failed: {exc}") from exc
+        if not context_guard["fits"]:
+            raise SystemExit(
+                "context guard failed: the longest prompt needs "
+                f"{context_guard['required_tokens']} tokens but each server "
+                f"slot has {context_guard['per_slot_ctx']} "
+                f"(n_ctx={context_guard['n_ctx']}, "
+                f"slots={context_guard['total_slots']}). Restart llama-server "
+                "with a larger --ctx-size or fewer --parallel slots."
+            )
+
     report = run_batch(
         tasks,
         backend,
@@ -94,6 +130,12 @@ def _cmd_classify_llm(args: argparse.Namespace) -> int:
         retry_failed=args.retry_failed,
         retries=args.retries,
         schema=output_json_schema(),
+        validate=args.validate,
+        max_consecutive_transport_errors=(
+            args.max_consecutive_transport_errors
+        ),
+        abort_on_systemic=not args.allow_systemic_continue,
+        transport_backoff_s=args.transport_backoff,
     )
 
     manifest: dict[str, Any] = {
@@ -109,7 +151,12 @@ def _cmd_classify_llm(args: argparse.Namespace) -> int:
         "resume": not args.no_resume,
         "retry_failed": args.retry_failed,
     }
-    if args.backend == "llama_cpp":
+    if context_guard is not None:
+        manifest["context_guard"] = context_guard
+    if args.backend in {"llama_cpp", "llama_server"}:
+        backend_metadata = (
+            backend.metadata() if hasattr(backend, "metadata") else None
+        )
         manifest.update(
             {
                 "model_path": str(Path(args.model).expanduser()),
@@ -118,8 +165,8 @@ def _cmd_classify_llm(args: argparse.Namespace) -> int:
                     if Path(args.model).expanduser().exists()
                     else None
                 ),
-                "n_ctx": args.n_ctx,
-                "n_batch": args.n_batch,
+                "n_ctx": (backend_metadata or {}).get("n_ctx", args.n_ctx),
+                "n_batch": (backend_metadata or {}).get("n_batch", args.n_batch),
                 "n_gpu_layers": args.n_gpu_layers,
                 "temperature": args.temperature,
                 "seed": args.seed,
@@ -127,8 +174,11 @@ def _cmd_classify_llm(args: argparse.Namespace) -> int:
                 "disable_thinking": not args.allow_thinking,
             }
         )
-        if hasattr(backend, "metadata"):
-            manifest["backend_metadata"] = backend.metadata()
+        if args.backend == "llama_server":
+            manifest["base_url"] = args.base_url
+            manifest["server_timeout"] = args.server_timeout
+        if backend_metadata is not None:
+            manifest["backend_metadata"] = backend_metadata
     report["manifest"] = None
     if args.manifest:
         write_manifest(args.manifest, manifest)
@@ -139,8 +189,12 @@ def _cmd_classify_llm(args: argparse.Namespace) -> int:
     else:
         for key in ("selected", "ok", "failed", "skipped", "elapsed_s", "output"):
             print(f"{key}: {report[key]}")
+        if report.get("aborted"):
+            print(f"aborted: {report['abort_reason']}")
         if report["manifest"]:
             print(f"manifest: {report['manifest']}")
+    if report.get("aborted"):
+        return 2
     return 0 if report["failed"] == 0 else 1
 
 
@@ -226,6 +280,76 @@ def _cmd_classify_dataset(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_classify_doctor(args: argparse.Namespace) -> int:
+    backend = LlamaServerBackend(
+        args.model,
+        base_url=args.base_url,
+        n_ctx=args.n_ctx,
+        n_batch=args.n_batch,
+        n_gpu_layers=args.n_gpu_layers,
+        temperature=args.temperature,
+        seed=args.seed,
+        max_tokens=args.max_tokens,
+        disable_thinking=not args.allow_thinking,
+        timeout=args.server_timeout,
+    )
+    prompt = prompt_manifest()
+    report: dict[str, Any] = {
+        "preflight": backend.preflight(),
+        "prompt": prompt,
+    }
+
+    if args.tasks:
+        tasks = load_tasks(args.tasks)
+        hashes = sorted({task.prompt_sha256 for task in tasks if task.prompt_sha256})
+        report["tasks"] = {
+            "path": str(args.tasks),
+            "count": len(tasks),
+            "prompt_sha256": hashes,
+            "matches_current_prompt": hashes == [str(prompt["prompt_sha256"])],
+        }
+        if report["preflight"]["reachable"]:
+            guard = backend.context_report(
+                [render_prompt(task) for task in tasks]
+            )
+            report["context_guard"] = guard
+            report["preflight"]["checks"]["context_fits_longest_prompt"] = (
+                guard["fits"]
+            )
+            report["preflight"]["ok"] = bool(
+                report["preflight"]["ok"] and guard["fits"]
+            )
+
+    if args.hash_model:
+        model_path = Path(args.model).expanduser()
+        report["model_sha256"] = (
+            sha256_file(model_path) if model_path.exists() else None
+        )
+
+    if args.json:
+        _print_json(report)
+    else:
+        checks = report["preflight"]["checks"]
+        for key, value in checks.items():
+            print(f"{key}: {value}")
+        print(f"base_url: {report['preflight']['base_url']}")
+        print(f"model_file: {report['preflight']['model_file']}")
+        print(f"prompt_sha256: {prompt['prompt_sha256']}")
+        if "tasks" in report:
+            print(f"tasks: {report['tasks']['count']}")
+            print(f"prompt_match: {report['tasks']['matches_current_prompt']}")
+        if "context_guard" in report:
+            guard = report["context_guard"]
+            print(f"per_slot_ctx: {guard['per_slot_ctx']}")
+            print(f"longest_prompt_tokens: {guard['longest_prompt_tokens']}")
+            print(f"required_tokens: {guard['required_tokens']}")
+            print(f"context_fits: {guard['fits']}")
+        if "model_sha256" in report:
+            print(f"model_sha256: {report['model_sha256']}")
+
+    return 0 if report["preflight"]["ok"] else 1
+
+
 def _cmd_classify_store(args: argparse.Namespace) -> int:
     """Store L1 predictions as partitioned Parquet for the analytics layer."""
     import json as _json
@@ -272,7 +396,20 @@ def add_classify_parser(subparsers: Any) -> argparse.ArgumentParser:
     p_llm.add_argument("--out", required=True, help="Raw JSONL output")
     p_llm.add_argument("--model", default=str(DEFAULT_LLM_MODEL))
     p_llm.add_argument(
-        "--backend", choices=["llama_cpp", "fake"], default="llama_cpp"
+        "--backend",
+        choices=["llama_cpp", "llama_server", "fake"],
+        default="llama_server",
+    )
+    p_llm.add_argument(
+        "--base-url",
+        default="http://127.0.0.1:8080",
+        help="Base URL of a llama-server instance (llama_server backend)",
+    )
+    p_llm.add_argument(
+        "--server-timeout",
+        type=float,
+        default=180.0,
+        help="Per-request timeout in seconds (llama_server backend)",
     )
     p_llm.add_argument("--shard", default="1/1", help="INDEX/TOTAL")
     p_llm.add_argument("--limit", type=int)
@@ -292,10 +429,65 @@ def add_classify_parser(subparsers: Any) -> argparse.ArgumentParser:
     )
     p_llm.set_defaults(retry_failed=True)
     p_llm.add_argument("--retries", type=int, default=1)
+    p_llm.add_argument(
+        "--max-consecutive-transport-errors",
+        type=int,
+        default=3,
+        help=(
+            "Abort the shard after this many transport failures in a row "
+            "(0 disables the circuit breaker)"
+        ),
+    )
+    p_llm.add_argument(
+        "--transport-backoff",
+        type=float,
+        default=1.0,
+        help="Seconds to wait between transport retries",
+    )
+    p_llm.add_argument(
+        "--allow-systemic-continue",
+        action="store_true",
+        help="Keep going after a systemic backend error instead of aborting",
+    )
+    p_llm.add_argument(
+        "--skip-context-guard",
+        action="store_true",
+        help="Do not verify prompt size against the server context",
+    )
+    p_llm.add_argument(
+        "--no-validate",
+        dest="validate",
+        action="store_false",
+        help="Skip payload validation and the repair retry",
+    )
+    p_llm.set_defaults(validate=True)
     p_llm.add_argument("--manifest")
     p_llm.add_argument("--verbose", action="store_true")
     p_llm.add_argument("--json", action="store_true")
     p_llm.set_defaults(func=_cmd_classify_llm)
+
+    p_doctor = classify_sub.add_parser(
+        "doctor",
+        help="Preflight the local LLM server, the prompt contract and the model",
+    )
+    p_doctor.add_argument("--model", default=str(DEFAULT_LLM_MODEL))
+    p_doctor.add_argument("--base-url", default="http://127.0.0.1:8080")
+    p_doctor.add_argument("--tasks", help="Task file to verify the prompt hash")
+    p_doctor.add_argument("--n-ctx", type=int, default=2048)
+    p_doctor.add_argument("--n-batch", type=int, default=256)
+    p_doctor.add_argument("--n-gpu-layers", type=int, default=-1)
+    p_doctor.add_argument("--temperature", type=float, default=0.0)
+    p_doctor.add_argument("--seed", type=int, default=13)
+    p_doctor.add_argument("--max-tokens", type=int, default=512)
+    p_doctor.add_argument("--allow-thinking", action="store_true")
+    p_doctor.add_argument("--server-timeout", type=float, default=30.0)
+    p_doctor.add_argument(
+        "--hash-model",
+        action="store_true",
+        help="Compute the SHA256 of the local model file",
+    )
+    p_doctor.add_argument("--json", action="store_true")
+    p_doctor.set_defaults(func=_cmd_classify_doctor)
 
     p_silver = classify_sub.add_parser(
         "silver", help="Convert raw LLM output into silver annotations"

@@ -12,6 +12,7 @@ from typing import Any, Iterable
 from keklab.annotation.proposal import TaskRecord, evidence_in_text
 from keklab.annotation.schema import AnnotationRecord
 from keklab.annotation.taxonomy import COARSE_HEADS, collapse_frames
+from keklab.classification.validate import rule_violations
 
 
 def parse_json_object(text: str) -> dict[str, Any]:
@@ -198,11 +199,21 @@ def convert_raw_rows(
     frame_counts: Counter[str] = Counter()
     coarse_counts: Counter[str] = Counter()
     toxicity_counts: Counter[int] = Counter()
+    violation_counts: Counter[str] = Counter()
     for annotation in annotations:
         frame_counts.update(annotation.frame_labels)
         coarse_counts.update(collapse_frames(annotation.frame_labels))
         if annotation.toxicity is not None:
             toxicity_counts[annotation.toxicity] += 1
+        for violation in rule_violations(annotation.frame_labels):
+            violation_counts[violation] += 1
+            failures.append(
+                {
+                    "task_id": "",
+                    "post_id": annotation.post_id,
+                    "warning": f"codebook rule: {violation}",
+                }
+            )
 
     warnings = [item for item in failures if "warning" in item]
     errors = [item for item in failures if "error" in item]
@@ -221,5 +232,6 @@ def convert_raw_rows(
             head: coarse_counts.get(head, 0) for head in COARSE_HEADS
         },
         "toxicity": {level: toxicity_counts.get(level, 0) for level in range(4)},
+        "rule_violations": dict(sorted(violation_counts.items())),
     }
     return annotations, report

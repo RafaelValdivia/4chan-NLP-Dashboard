@@ -15,9 +15,12 @@ from keklab.annotation.labels import (
 from keklab.annotation.proposal import TaskRecord
 
 GUIDELINE_VERSION = "v0.2"
-PROMPT_VERSION = "v2"
+PROMPT_VERSION = "v3"
 PROVIDER = "opencode"
 MODEL = "big-pickle"
+# The prompt sends only the cleaned text: `text_raw` duplicated the post and
+# carried HTML noise, which pushed the longest prompt past the server context.
+TASK_JSON_FIELDS: tuple[str, ...] = ("post_id", "text_clean")
 
 PROMPT_TEMPLATE = """\
 You are a careful annotator for a research dataset of 4chan /pol/ posts.
@@ -66,14 +69,22 @@ Task JSON:
 
 
 def prompt_sha256() -> str:
-    """Hash of the prompt contract: template plus generated menus.
+    """Hash of the prompt contract: version, template, menus and task fields.
 
     The frame and toxicity menus are rendered into the prompt, so they are
-    part of its semantics and must be covered by the hash. This replaces the
-    v1 hash, which covered only `PROMPT_TEMPLATE`.
+    part of its semantics and must be covered by the hash. The prompt version
+    and the `task_json` field list are covered too: the template keeps the
+    `{prompt_version}` placeholder, so hashing the raw template alone would not
+    change when the version or the rendered task shape changes.
     """
     payload = "\n".join(
-        [PROMPT_TEMPLATE, format_frame_menu(), _toxicity_menu()]
+        [
+            PROMPT_VERSION,
+            PROMPT_TEMPLATE,
+            format_frame_menu(),
+            _toxicity_menu(),
+            json.dumps(TASK_JSON_FIELDS),
+        ]
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -94,11 +105,10 @@ def _toxicity_menu() -> str:
 
 
 def render_prompt(task: TaskRecord) -> str:
-    """Render the full prompt for one task using only the target post text."""
+    """Render the full prompt for one task using only the cleaned post text."""
     task_json = json.dumps(
         {
             "post_id": task.post_id,
-            "text_raw": task.text_raw,
             "text_clean": task.text_clean,
         },
         ensure_ascii=False,

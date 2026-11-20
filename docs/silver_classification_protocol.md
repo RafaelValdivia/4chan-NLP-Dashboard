@@ -27,7 +27,7 @@ y no se usa para seleccionar modelos ni hiperparámetros.
 | Dirigidos | 0 |
 | Semilla | 17 |
 | Unidad | post; un post por hilo |
-| Texto | `text_raw` y `text_clean`; sin OP, quotes, subject ni stratum |
+| Texto | `text_clean` solamente; sin OP, quotes, subject ni stratum |
 
 Reglas de construcción:
 
@@ -65,11 +65,13 @@ sampler aplica a muestreos futuros, no a este archivo.
 - Las etiquetas específicas de prejuicio reemplazan a
   `ethnonationalism`/`racism`.
 - `transphobia` y `homophobia` son ejes independientes de `misogyny`.
-- `guideline_version = "v0.2"`, `prompt_version = "v2"`.
-- El prompt es el mismo del piloto (`docs/prompts/annotation_prompt_v2.txt`);
-  hash esperado `30dc56899dfc77347c2c32cfbab67cb15569e3a8b3c87c472325b91565b01769`.
-- Si el smoke test exige cambiar el prompt, se crea `v3`, se registra el nuevo
-  hash y se repite el smoke test. No se cambia el prompt en silencio.
+- `guideline_version = "v0.2"`, `prompt_version = "v3"`.
+- El prompt es el mismo del piloto (`docs/prompts/annotation_prompt_v3.txt`),
+  ahora con `task_json` solo `post_id` + `text_clean`.
+- Hash esperado: `ef251abee5137ab35ff1882817c97aee5bdcdac9c0ee52900afbbe60d68c995e`.
+- Si el smoke test exige cambiar el prompt, se crea la versión siguiente, se
+  registra el nuevo hash y se repite el smoke test. No se cambia el prompt en
+  silencio.
 
 ## Maestro
 
@@ -82,7 +84,7 @@ sampler aplica a muestreos futuros, no a este archivo.
 | Thinking | desactivado explícitamente y registrado |
 | Temperatura | 0 |
 | Semilla | 13 |
-| `n_ctx` | 2048 (ajustable tras el smoke test) |
+| `n_ctx` | 8192 (slot único tras el ajuste del smoke) |
 | Salida | JSON estricto validado contra el esquema |
 
 Cada corrida guarda un manifiesto con: SHA256 del GGUF, versión de
@@ -125,8 +127,9 @@ y se repite. No se lanza la corrida completa con un gate fallido.
 
 Reglas:
 
-- E0: `text_raw` vs `text_clean` en dev; la limpieza solo se adopta si mejora
-  de forma consistente.
+- E0: crudo vs saneo con un modelo maestro que solo ve `text_clean`; se
+  conserva `text_raw` como representación candidata a fine-tuning. La limpieza
+  solo se adopta si mejora de forma consistente.
 - Hiperparámetros en dev; una sola evaluación final en test.
 - Toxicidad como tarea ordinal/multiclase separada.
 - Reportar las 7 cabezas derivadas aunque el modelo entrene los 16 marcos.

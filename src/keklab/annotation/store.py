@@ -1,5 +1,29 @@
 # Role: JSONL persistence for samples/annotations, resume keys and CSV export.
-# Connects to: annotation/schema, annotation/cli, annotation/agreement.
+# Connects to: annotation/schema, annotation/proposal, annotation/cli,
+# annotation/agreement, common/io.
+
+"""JSONL persistence for every human-labeling artifact.
+
+Reads and writes the on-disk record files produced by the annotation and
+review CLIs. All writers create parent directories and replace the target
+atomically (temp file + ``os.replace``), so a crash never leaves a
+half-written file behind.
+
+File formats (one JSON object per line, UTF-8, ``ensure_ascii=False``):
+
+- ``annotations.jsonl``: :class:`AnnotationRecord` rows, sorted by
+  ``(sample key, round, annotator)``.
+- ``samples.jsonl``: :class:`SamplePost` rows, in file order.
+- ``tasks/proposals/reviews.jsonl``: AI-assistance records from
+  :mod:`keklab.annotation.proposal`.
+
+Missing annotation files are treated as empty on load; a missing sample
+file raises :class:`FileNotFoundError` (samples are always required
+inputs). With ``strict=False``, invalid records are skipped with a
+warning instead of raising.
+
+Side effects: writers touch the filesystem; everything else is pure.
+"""
 
 from __future__ import annotations
 
@@ -65,20 +89,13 @@ def load_annotations(
     *,
     strict: bool = True,
 ) -> list[AnnotationRecord]:
-    """Load and validate annotations from JSONL."""
-    p = Path(path).expanduser()
-    if not p.exists():
-        return []
+    """Load and validate annotations from JSONL.
 
-    records: list[AnnotationRecord] = []
-    for obj in iter_ndjson(p, skip_errors=not strict):
-        try:
-            records.append(AnnotationRecord.model_validate(obj))
-        except Exception as exc:  # pydantic ValidationError
-            if strict:
-                raise ValueError(f"{p}: invalid annotation record: {exc}") from exc
-            log.warning("Skipping invalid annotation in %s: %s", p, exc)
-    return records
+    Returns an empty list when the file does not exist (annotations are
+    optional inputs for resume flows). Raises ``ValueError`` on the
+    first invalid record when ``strict`` is true.
+    """
+    return _load_records(path, AnnotationRecord, strict=strict, label="annotation")
 
 
 def write_annotations(records: Iterable[AnnotationRecord], path: str | Path) -> Path:
@@ -94,20 +111,17 @@ def write_annotations(records: Iterable[AnnotationRecord], path: str | Path) -> 
 
 
 def load_samples(path: str | Path, *, strict: bool = True) -> list[SamplePost]:
-    """Load and validate annotation candidates from JSONL."""
-    p = Path(path).expanduser()
-    if not p.exists():
-        raise FileNotFoundError(p)
+    """Load and validate annotation candidates from JSONL.
 
-    samples: list[SamplePost] = []
-    for obj in iter_ndjson(p, skip_errors=not strict):
-        try:
-            samples.append(SamplePost.model_validate(obj))
-        except Exception as exc:
-            if strict:
-                raise ValueError(f"{p}: invalid sample record: {exc}") from exc
-            log.warning("Skipping invalid sample in %s: %s", p, exc)
-    return samples
+    Unlike annotations, a missing sample file is an error: samples are a
+    required input, so this raises ``FileNotFoundError``.
+    """
+    expanded = Path(path).expanduser()
+    if not expanded.exists():
+        raise FileNotFoundError(expanded)
+    return _load_records(
+        expanded, SamplePost, strict=strict, label="sample"
+    )
 
 
 def write_samples(samples: Iterable[SamplePost], path: str | Path) -> Path:
@@ -126,6 +140,13 @@ def _load_records(
     strict: bool,
     label: str,
 ) -> list[Any]:
+    """Validate a JSONL file record-by-record against a pydantic model.
+
+    Shared loader for annotation/sample/task/proposal/review files.
+    A missing file yields an empty list. With ``strict=False`` the caller
+    opts into skipping malformed lines (NDJSON level) and invalid
+    records (pydantic level) with a warning each.
+    """
     p = Path(path).expanduser()
     if not p.exists():
         return []
@@ -147,6 +168,7 @@ def load_tasks(
 
 
 def write_tasks(tasks: Iterable[TaskRecord], path: str | Path) -> Path:
+    """Write tasks as JSONL, sorted by ``task_id``."""
     rows = [
         task.model_dump(mode="json")
         for task in sorted(tasks, key=lambda item: item.task_id)
@@ -157,12 +179,14 @@ def write_tasks(tasks: Iterable[TaskRecord], path: str | Path) -> Path:
 def load_proposals(
     path: str | Path, *, strict: bool = True
 ) -> list[ProposalRecord]:
+    """Load AI proposals from JSONL (empty list if the file is missing)."""
     return _load_records(path, ProposalRecord, strict=strict, label="proposal")
 
 
 def write_proposals(
     proposals: Iterable[ProposalRecord], path: str | Path
 ) -> Path:
+    """Write proposals as JSONL, sorted by ``proposal_id``."""
     rows = [
         proposal.model_dump(mode="json")
         for proposal in sorted(
@@ -175,10 +199,12 @@ def write_proposals(
 def load_reviews(
     path: str | Path, *, strict: bool = True
 ) -> list[ReviewRecord]:
+    """Load human review decisions from JSONL (empty list if missing)."""
     return _load_records(path, ReviewRecord, strict=strict, label="review")
 
 
 def write_reviews(reviews: Iterable[ReviewRecord], path: str | Path) -> Path:
+    """Write reviews as JSONL, sorted by (time, review id)."""
     rows = [
         review.model_dump(mode="json")
         for review in sorted(
@@ -358,6 +384,12 @@ def export_jsonl(
 # Descriptive statistics
 # ---------------------------------------------------------------------------
 def annotation_stats(records: Iterable[Annotation]) -> dict[str, Any]:
+    """Summarize annotation counts for ``annotate stats`` / ``audit``.
+
+    Pure reporting: counts by frame (every label present in the result,
+    zero-filled), coarse head, toxicity level (0-3), annotator/round and
+    tier, plus the mean number of frames per annotation.
+    """
     records = list(records)
     frame_counts = Counter(
         label for record in records for label in record.frame_labels

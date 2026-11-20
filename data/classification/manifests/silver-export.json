@@ -1,0 +1,188 @@
+{
+  "kind": "silver_export",
+  "raw": "/home/flynn/4chan-NLP-Dashboard/data/classification/llm/raw/rotlk_5000.v3.qwen3-8b-q4_k_m.raw.jsonl",
+  "tasks": "/home/flynn/4chan-NLP-Dashboard/data/classification/tasks/rotlk_5000.jsonl",
+  "samples": "/home/flynn/4chan-NLP-Dashboard/data/classification/samples/rotlk_5000.jsonl",
+  "silver": "/home/flynn/4chan-NLP-Dashboard/data/classification/silver/rotlk_5000.qwen3-8b-q4_k_m.silver.jsonl",
+  "splits": "/home/flynn/4chan-NLP-Dashboard/data/classification/splits/rotlk_5000_threads.jsonl",
+  "modeling": "/home/flynn/4chan-NLP-Dashboard/data/classification/modeling/rotlk_5000.jsonl",
+  "silver_report": {
+    "raw_rows": 5000,
+    "annotations": 5000,
+    "unique_posts": 5000,
+    "duplicate_posts": 0,
+    "missing_tasks": 0,
+    "errors": 0,
+    "warnings": 399,
+    "error_details": [],
+    "warning_details": [
+      {
+        "task_id": "task_03f19e9e310dc120",
+        "post_id": "228818690",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_05de8ced9454b8ba",
+        "post_id": "85531379",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_08805b86ed60facb",
+        "post_id": "231015931",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_0e4243206a0e089e",
+        "post_id": "196686253",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_0eab96c0ba2e8a4d",
+        "post_id": "198867776",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_131b648235ef1348",
+        "post_id": "193872181",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_16043a69398a386d",
+        "post_id": "185691892",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_17a4d27b8f3f9951",
+        "post_id": "227275536",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_18c6d349b301db09",
+        "post_id": "228615315",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_1d0d0174211f5807",
+        "post_id": "128062555",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_20fc1e0d3b08acd0",
+        "post_id": "230870739",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_21016a729ed706bf",
+        "post_id": "118610698",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_274b7f31271dc979",
+        "post_id": "162280172",
+        "warning": "2 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_27559ee4e34a1abf",
+        "post_id": "147263460",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_27cc15e9a224b747",
+        "post_id": "203073766",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_2904067b5f9e86df",
+        "post_id": "79305201",
+        "warning": "2 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_2a1505d9e9d4bc5e",
+        "post_id": "151158293",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_2d0ce860d212dfb6",
+        "post_id": "92455357",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_330584d2a9a3c158",
+        "post_id": "101549507",
+        "warning": "1 evidence fragment(s) not verbatim"
+      },
+      {
+        "task_id": "task_34b74106ed3c5c27",
+        "post_id": "165065399",
+        "warning": "1 evidence fragment(s) not verbatim"
+      }
+    ],
+    "frames": {
+      "accelerationism": 23,
+      "antisemitism": 437,
+      "conspiracy": 430,
+      "ethnonationalism": 721,
+      "homophobia": 89,
+      "institutional_distrust": 266,
+      "islamophobia": 159,
+      "meta_topic": 4,
+      "misogyny": 145,
+      "none": 3362,
+      "racism": 609,
+      "rusophobia": 105,
+      "sinophobia": 94,
+      "transphobia": 62,
+      "unclear": 4,
+      "violence_glorification": 52
+    },
+    "coarse_heads": {
+      "conspiracy": 430,
+      "ethnoracial_prejudice": 1301,
+      "gender_sexuality_prejudice": 188,
+      "institutional_distrust": 266,
+      "violence_acceleration": 65,
+      "meta_topic": 4,
+      "no_frame": 3366
+    },
+    "toxicity": {
+      "0": 2551,
+      "1": 1037,
+      "2": 974,
+      "3": 438
+    },
+    "rule_violations": {
+      "specific prejudice combined with generic prejudice": 319
+    }
+  },
+  "dataset_report": {
+    "annotations": 5000,
+    "rows": 5000,
+    "missing_samples": 0,
+    "missing_sample_ids": [],
+    "missing_toxicity": 0,
+    "splits": {
+      "train": 3000,
+      "dev": 1000,
+      "test": 1000
+    },
+    "frames": 16,
+    "coarse_heads": 7
+  },
+  "test_sha256": "afae38a9157c64197c83839812a4846918a4506f51c02c916c51ef6f8fde21b4",
+  "prompt_sha256": [
+    "ef251abee5137ab35ff1882817c97aee5bdcdac9c0ee52900afbbe60d68c995e"
+  ],
+  "annotation_count": 5000,
+  "rows": 5000,
+  "split_rows": {
+    "train": 3000,
+    "dev": 1000,
+    "test": 1000
+  },
+  "thread_splits": {
+    "train": 3000,
+    "dev": 1000,
+    "test": 1000
+  },
+  "created_utc": "2026-11-12T16:37:14.204350+00:00"
+}

@@ -1,0 +1,16 @@
+{
+  "attempts": 0,
+  "created_utc": "2026-11-12T16:41:54.958184+00:00",
+  "depends_on": [
+    "20261112164154-b8d1a458-export",
+    "20261112164154-c8b7d55a-setup"
+  ],
+  "id": "20261112164154-93529e5d-gliner",
+  "max_retries": 1,
+  "name": "gliner-finetune",
+  "params": {},
+  "state": "pending",
+  "timeout_s": 28800,
+  "type": "gliner",
+  "updated_utc": "2026-11-12T16:41:54.958186+00:00"
+}

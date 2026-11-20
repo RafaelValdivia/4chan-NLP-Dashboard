@@ -27,6 +27,7 @@ def make_sample(
     post_id: str = "1",
     *,
     text_raw: str = "hello world",
+    text_clean: str | None = None,
     stratum: dict | None = None,
 ) -> SamplePost:
     return SamplePost(
@@ -37,7 +38,7 @@ def make_sample(
         timestamp_utc=NOW,
         subject="subject",
         text_raw=text_raw,
-        text_clean=text_raw,
+        text_clean=text_raw if text_clean is None else text_clean,
         quotes=[],
         content_hash=f"hash-{post_id}",
         is_op=False,
@@ -49,9 +50,14 @@ def make_sample(
     )
 
 
-def make_task(post_id: str = "1", *, text_raw: str = "hello world") -> TaskRecord:
+def make_task(
+    post_id: str = "1",
+    *,
+    text_raw: str = "hello world",
+    text_clean: str | None = None,
+) -> TaskRecord:
     return TaskRecord.from_sample(
-        make_sample(post_id, text_raw=text_raw),
+        make_sample(post_id, text_raw=text_raw, text_clean=text_clean),
         guideline_version="v0.1",
         prompt_version="v1",
         created_utc=NOW,
@@ -100,11 +106,12 @@ def test_task_sanitizes_targeted_stratum():
     assert task.context.parents == []
 
 
-def test_prompt_contains_only_target_post_text():
-    task = make_task()
+def test_prompt_contains_only_cleaned_target_post_text():
+    task = make_task(text_raw="<b>hello</b> world", text_clean="hello world")
     prompt = render_prompt(task)
 
-    assert task.text_raw in prompt
+    assert task.text_clean in prompt
+    assert task.text_raw not in prompt
     assert "OP text" not in prompt
     assert "Subject:" not in prompt
     assert '"context"' not in prompt

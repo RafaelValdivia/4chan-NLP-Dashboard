@@ -1,0 +1,19 @@
+{
+  "attempts": 0,
+  "created_utc": "2026-11-12T16:41:54.958496+00:00",
+  "depends_on": [
+    "20261112164154-fc2f162b-laya",
+    "20261112164154-93529e5d-gliner",
+    "20261112164154-c637b2b2-baselines"
+  ],
+  "id": "20261112164154-3421ef29-evaluate",
+  "max_retries": 0,
+  "name": "evaluate-dev",
+  "params": {
+    "split": "dev"
+  },
+  "state": "pending",
+  "timeout_s": 3600,
+  "type": "evaluate",
+  "updated_utc": "2026-11-12T16:41:54.958499+00:00"
+}
