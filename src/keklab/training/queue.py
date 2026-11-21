@@ -217,7 +217,7 @@ def _run_job(root: Path, running: Path) -> None:
     job["returncode"] = code
     job["log"] = str(log_path)
     if code == 0:
-        _move(running, root, "done", **job)
+        _move(running, root, "done", **{key: value for key, value in job.items() if key != "state"})
         return
     attempts = int(job.get("attempts", 1))
     if _is_transient(log_path, code) and attempts <= int(job.get("max_retries", 1)):
@@ -228,7 +228,7 @@ def _run_job(root: Path, running: Path) -> None:
         os.replace(running, root / "pending" / running.name)
         return
     job["last_error"] = "transient failure" if _is_transient(log_path, code) else "job failed"
-    _move(running, root, "failed", **job)
+    _move(running, root, "failed", **{key: value for key, value in job.items() if key != "state"})
 
 
 def worker(*, once: bool = False, poll_s: float = 10.0, queue_dir: Path = QUEUE_DIR) -> int:

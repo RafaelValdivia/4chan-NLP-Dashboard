@@ -13,7 +13,7 @@ from keklab.training import data
 BASE_MODEL = Path("/home/flynn/modelos_originales/gliner-multi-v2.1")
 MODEL_ROOT = data.MODELS_DIR / "gliner"
 HF_REPO = "urchade/gliner_multi-v2.1"
-META_FILES = ("config.json", "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json")
+META_FILES = ("config.json", "tokenizer_config.json", "spm.model")
 
 
 def restore_metadata() -> dict[str, Any]:
@@ -31,6 +31,13 @@ def restore_metadata() -> dict[str, Any]:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
         restored.append(name)
+
+    tokenizer_config = BASE_MODEL / "tokenizer_config.json"
+    config = json.loads(tokenizer_config.read_text(encoding="utf-8"))
+    if config.get("tokenizer_class") != "DebertaV2Tokenizer":
+        config["tokenizer_class"] = "DebertaV2Tokenizer"
+        tokenizer_config.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+        restored.append("tokenizer_class")
     return {"restored": restored, "model": str(BASE_MODEL)}
 
 

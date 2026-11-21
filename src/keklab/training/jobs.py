@@ -39,10 +39,9 @@ def _pip_install(args: list[str], *, index_url: str | None = None, timeout: int 
 
 WHEELHOUSE = Path(os.environ.get("KEKLAB_WHEELHOUSE", "/home/flynn/keklab-wheels"))
 SETUP_CONSTRAINTS = (
-    "torch==2.5.1+cu121",
-    "transformers==5.22.2",
-    "tokenizers==0.23.3",
-    "huggingface-hub==1.33.0",
+    "transformers==4.57.6",
+    "tokenizers==0.22.2",
+    "huggingface-hub==0.36.2",
     "datasets==5.0.1",
     "accelerate==1.15.0",
     "numpy==2.5.4",
@@ -58,9 +57,9 @@ SETUP_CONSTRAINTS = (
 )
 SETUP_PACKAGES = (
     "torch==2.5.1+cu121",
-    "transformers==5.22.2",
-    "tokenizers==0.23.3",
-    "huggingface-hub==1.33.0",
+    "transformers==4.57.6",
+    "tokenizers==0.22.2",
+    "huggingface-hub==0.36.2",
     "datasets==5.0.1",
     "accelerate==1.15.0",
     "numpy==2.5.4",
@@ -70,6 +69,8 @@ SETUP_PACKAGES = (
     "scikit-learn==1.9.1",
     "tqdm==4.70.1",
     "pytest==9.2.0",
+)
+SETUP_MODEL_PACKAGES = (
     "laya==0.4.31",
     "gliner==0.2.30",
     "vegaml==0.16.1",
@@ -84,7 +85,7 @@ def setup(params: dict[str, Any]) -> dict[str, Any]:
         name
         for name in (
             "torch-2.5.1+cu121-cp312-cp312-linux_x86_64.whl",
-            "transformers-5.22.2-py3-none-any.whl",
+            "transformers-4.57.6-py3-none-any.whl",
             "laya-0.4.31-py3-none-any.whl",
             "gliner-0.2.30-py3-none-any.whl",
             "vegaml-0.16.1-py3-none-any.whl",
@@ -98,7 +99,7 @@ def setup(params: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError(f"insufficient free disk for CUDA wheels: {free / 1024**3:.1f} GiB")
     constraints = Path(tempfile.mkstemp(prefix="keklab-constraints-", suffix=".txt")[1])
     constraints.write_text("\n".join(SETUP_CONSTRAINTS) + "\n", encoding="utf-8")
-    install = [
+    base_install = [
         sys.executable,
         "-m",
         "pip",
@@ -110,13 +111,30 @@ def setup(params: dict[str, Any]) -> dict[str, Any]:
         str(constraints),
         *SETUP_PACKAGES,
     ]
-    offline = [*install[:5], "--no-index", *install[5:]]
+    model_install = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--disable-pip-version-check",
+        "--no-deps",
+        "--find-links",
+        str(wheelhouse),
+        *SETUP_MODEL_PACKAGES,
+    ]
+    installs = (base_install, model_install)
+
+    def install_all(*, offline: bool) -> None:
+        for command in installs:
+            index_args = ["--no-index"] if offline else []
+            _run([*command[:5], *index_args, *command[5:]], timeout=7200)
+
     try:
-        _run(offline, timeout=7200)
+        install_all(offline=True)
         mode = "offline"
     except subprocess.CalledProcessError:
         _log("offline install failed; retrying with package indexes")
-        _run(install, timeout=7200)
+        install_all(offline=False)
         mode = "online-fallback"
     constraints.unlink(missing_ok=True)
     verify = (
@@ -124,9 +142,13 @@ def setup(params: dict[str, Any]) -> dict[str, Any]:
         "print('torch', torch.__version__, 'cuda', torch.cuda.is_available())\n"
         "assert torch.__version__.startswith('2.5.1'), torch.__version__\n"
         "assert torch.cuda.is_available(), 'CUDA unavailable'\n"
-        "arch = torch.cuda.get_arch_list()\n"
-        "print('arch', arch, 'device', torch.cuda.get_device_name(0))\n"
-        "assert 'sm_61' in arch, f'sm_61 missing from {arch}'\n"
+        "x = torch.randn(64, 64, device='cuda')\n"
+        "y = x @ x\n"
+        "torch.cuda.synchronize()\n"
+        "assert bool(torch.isfinite(y).all()), 'CUDA matmul smoke test failed'\n"
+        "print('device', torch.cuda.get_device_name(0), 'capability', torch.cuda.get_device_capability(0))\n"
+        "print('arch', torch.cuda.get_arch_list())\n"
+        "assert transformers.__version__.startswith('4.57.'), transformers.__version__\n"
         "print('transformers', transformers.__version__, 'laya', getattr(laya, '__version__', '?'), "
         "'gliner', getattr(gliner, '__version__', '?'))\n"
     )
@@ -138,6 +160,7 @@ def setup(params: dict[str, Any]) -> dict[str, Any]:
         "install_mode": mode,
         "constraints": list(SETUP_CONSTRAINTS),
         "packages": list(SETUP_PACKAGES),
+        "model_packages": list(SETUP_MODEL_PACKAGES),
         "git_commit": git_commit(),
     }
     write_manifest(data.MANIFESTS_DIR / "environment-setup.json", manifest)

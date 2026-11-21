@@ -67,5 +67,10 @@ set. Silver labels are teacher imitation targets, not human ground truth.
   and output paths.
 - The queue is resumable and idempotent. A one-shot test lock prevents a second
   test score; a failed test run is not silently repeated.
-- If CUDA cannot be made compatible with `sm_61`, GPU jobs stop rather than
-  falling back to an unregistered CPU result.
+- GPU setup runs a CUDA matmul smoke test on the actual device rather than
+  relying only on `torch.cuda.get_arch_list()`; `torch 2.5.1+cu121` works on the
+  GTX 1070 Ti (`sm_61`) even though that arch is not listed explicitly.
+- The pinned stack uses `transformers 4.57.6` with `torch 2.5.1+cu121`;
+  `transformers 5.x` disables PyTorch below torch 2.6 and is not used.
+- If the CUDA smoke test fails, GPU jobs stop rather than falling back to an
+  unregistered CPU result.
