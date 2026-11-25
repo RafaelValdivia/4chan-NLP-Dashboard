@@ -21,6 +21,7 @@ models/gguf/*.gguf
 models/gguf/*.safetensors
 models/gguf/*.bin
 models/gguf/*.part
+data/classification/models/
 
 # Raw LLM outputs and predictions can be regenerated from tasks + manifests
 data/classification/llm/raw/

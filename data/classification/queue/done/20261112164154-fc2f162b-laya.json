@@ -1,0 +1,37 @@
+{
+  "attempts": 1,
+  "created_utc": "2026-11-12T16:41:54.957662+00:00",
+  "depends_on": [
+    "20261112164154-b8d1a458-export"
+  ],
+  "finished_utc": "2026-11-25T01:06:04.178212+00:00",
+  "id": "20261112164154-fc2f162b-laya",
+  "log": "data/classification/queue/logs/20261112164154-fc2f162b-laya.log",
+  "max_retries": 1,
+  "name": "laya-frozen-softce",
+  "params": {
+    "epochs": 4,
+    "freeze_encoder": true,
+    "loss": "soft-ce",
+    "run": "laya-frozen-softce"
+  },
+  "pid": 3898,
+  "resumed_prediction": {
+    "batch_size": 1,
+    "cpu_fallback_count": 0,
+    "device": "cuda",
+    "elapsed_seconds": 503.9,
+    "max_memory_mib": 2635.7,
+    "rows": {
+      "dev": 1000,
+      "test": 1000
+    }
+  },
+  "returncode": 0,
+  "seconds": 15078.1,
+  "started_utc": "2026-11-24T20:54:46.126306+00:00",
+  "state": "done",
+  "timeout_s": 43200,
+  "type": "laya",
+  "updated_utc": "2026-11-25T01:06:04.178215+00:00"
+}
