@@ -1,0 +1,59 @@
+{
+  "kind": "gliner_finetune",
+  "base_model": "/home/flynn/modelos_originales/gliner-multi-v2.1",
+  "output": "/home/flynn/4chan-NLP-Dashboard/data/classification/models/gliner/gliner-finetune",
+  "metadata": {
+    "restored": [
+      "tokenizer_class",
+      "model_max_length"
+    ],
+    "model": "/home/flynn/modelos_originales/gliner-multi-v2.1"
+  },
+  "rows": 3000,
+  "dev_rows": 1000,
+  "epochs": 3,
+  "micro_batch": 1,
+  "gradient_accumulation_steps": 8,
+  "max_steps": 1125,
+  "precision": "fp32",
+  "device": "cuda",
+  "token_max_length": 384,
+  "errors": [],
+  "training": {
+    "train_runtime_seconds": 770.9491,
+    "train_samples_per_second": 11.674,
+    "train_steps_per_second": 1.459,
+    "train_loss": 5.1674092415703665,
+    "epoch": 3.0,
+    "worker_seconds": 974.4,
+    "returncode": 0
+  },
+  "predictions": {
+    "dev": 1000,
+    "test": 1000
+  },
+  "artifacts": {
+    "model": {
+      "path": "data/classification/models/gliner/gliner-finetune/model.safetensors",
+      "sha256": "c63204fb4c0a6e3bf0a4fc63c8ff9033d12cbcf96339fef47dfcde8e3c065853",
+      "versioned": false
+    },
+    "predictions": {
+      "dev": {
+        "path": "data/classification/predictions/gliner-finetune/dev.jsonl",
+        "sha256": "a9d1f4a74785ea303dca82c803c196dbb6d2c788c407d08a7970022162d75ebf",
+        "versioned": false
+      },
+      "test": {
+        "path": "data/classification/predictions/gliner-finetune/test.jsonl",
+        "sha256": "63f955844badf074eeb5f7cc734e9053774a3505393b800bb96bffc3dc866998",
+        "versioned": false
+      }
+    },
+    "frozen_test_sha256": "afae38a9157c64197c83839812a4846918a4506f51c02c916c51ef6f8fde21b4"
+  },
+  "git_commit": "bf4709c",
+  "queue_job": "20261112164154-93529e5d-gliner",
+  "log": "data/classification/queue/logs/20261112164154-93529e5d-gliner.log",
+  "created_utc": "2026-11-27T23:59:35.064655+00:00"
+}

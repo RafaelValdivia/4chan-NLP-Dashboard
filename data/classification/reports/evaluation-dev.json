@@ -8,32 +8,32 @@
       "available": true,
       "rows": 1000,
       "thresholds": {
-        "conspiracy": 0.47936,
+        "conspiracy": 0.479361,
         "ethnonationalism": 0.387191,
-        "racism": 0.480755,
-        "antisemitism": 0.47233,
+        "racism": 0.480754,
+        "antisemitism": 0.477517,
         "islamophobia": 0.423651,
-        "rusophobia": 0.441198,
-        "sinophobia": 0.325091,
-        "misogyny": 0.339037,
-        "transphobia": 0.385689,
-        "homophobia": 0.468748,
+        "rusophobia": 0.448435,
+        "sinophobia": 0.324229,
+        "misogyny": 0.411686,
+        "transphobia": 0.38569,
+        "homophobia": 0.468746,
         "institutional_distrust": 0.389502,
-        "violence_glorification": 0.5,
-        "accelerationism": 0.26328,
+        "violence_glorification": 0.69003,
+        "accelerationism": 0.263279,
         "meta_topic": 0.5,
-        "none": 0.359523,
-        "unclear": 0.269889
+        "none": 0.359522,
+        "unclear": 0.269878
       },
-      "macro_f1": 0.3028378726895186,
-      "substantive_macro_f1": 0.28406066157152643,
+      "macro_f1": 0.3034560045576505,
+      "substantive_macro_f1": 0.2847670979922486,
       "micro": {
-        "tp": 855,
-        "fp": 355,
-        "fn": 433,
-        "precision": 0.7066115702479339,
-        "recall": 0.6638198757763976,
-        "f1": 0.6845476381104885
+        "tp": 853,
+        "fp": 339,
+        "fn": 435,
+        "precision": 0.7156040268456376,
+        "recall": 0.6622670807453416,
+        "f1": 0.6879032258064517
       },
       "per_label": {
         "conspiracy": {
@@ -107,24 +107,24 @@
           "predicted": 20
         },
         "misogyny": {
-          "tp": 6,
-          "fp": 26,
-          "fn": 18,
-          "precision": 0.1875,
-          "recall": 0.25,
-          "f1": 0.21428571428571427,
+          "tp": 4,
+          "fp": 11,
+          "fn": 20,
+          "precision": 0.26666666666666666,
+          "recall": 0.16666666666666666,
+          "f1": 0.2051282051282051,
           "support": 24,
-          "predicted": 32
+          "predicted": 15
         },
         "transphobia": {
           "tp": 2,
-          "fp": 3,
+          "fp": 2,
           "fn": 8,
-          "precision": 0.4,
+          "precision": 0.5,
           "recall": 0.2,
-          "f1": 0.26666666666666666,
+          "f1": 0.28571428571428575,
           "support": 10,
-          "predicted": 5
+          "predicted": 4
         },
         "homophobia": {
           "tp": 1,
@@ -198,16 +198,16 @@
         }
       },
       "bootstrap_macro_f1": {
-        "low": 0.2471407955491593,
-        "high": 0.35188351389949063,
+        "low": 0.24513205640207103,
+        "high": 0.35552198719289274,
         "reps": 1000,
         "threads": 1000
       },
       "toxicity": {
         "available": false
       },
-      "exact_match": 0.702,
-      "mean_labels_predicted": 1.21
+      "exact_match": 0.703,
+      "mean_labels_predicted": 1.192
     },
     "emb-lr": {
       "model": "emb-lr",
@@ -415,6 +415,458 @@
       },
       "exact_match": 0.69,
       "mean_labels_predicted": 1.27
+    },
+    "gliner-finetune": {
+      "model": "gliner-finetune",
+      "split": "dev",
+      "available": true,
+      "rows": 1000,
+      "thresholds": {
+        "conspiracy": 0.066823,
+        "ethnonationalism": 0.013401,
+        "racism": 0.034189,
+        "antisemitism": 0.066261,
+        "islamophobia": 0.052214,
+        "rusophobia": 0.052342,
+        "sinophobia": 0.00629,
+        "misogyny": 0.076023,
+        "transphobia": 0.039386,
+        "homophobia": 0.011178,
+        "institutional_distrust": 0.098635,
+        "violence_glorification": 0.03663,
+        "accelerationism": 0.00256,
+        "meta_topic": 0.5,
+        "none": 1.0,
+        "unclear": 1.0
+      },
+      "macro_f1": 0.41751833847035363,
+      "substantive_macro_f1": 0.4154133420094595,
+      "micro": {
+        "tp": 959,
+        "fp": 541,
+        "fn": 329,
+        "precision": 0.6393333333333333,
+        "recall": 0.7445652173913043,
+        "f1": 0.6879483500717359
+      },
+      "per_label": {
+        "conspiracy": {
+          "tp": 33,
+          "fp": 45,
+          "fn": 43,
+          "precision": 0.4230769230769231,
+          "recall": 0.4342105263157895,
+          "f1": 0.4285714285714286,
+          "support": 76,
+          "predicted": 78
+        },
+        "ethnonationalism": {
+          "tp": 107,
+          "fp": 148,
+          "fn": 29,
+          "precision": 0.4196078431372549,
+          "recall": 0.7867647058823529,
+          "f1": 0.5473145780051152,
+          "support": 136,
+          "predicted": 255
+        },
+        "racism": {
+          "tp": 89,
+          "fp": 86,
+          "fn": 28,
+          "precision": 0.5085714285714286,
+          "recall": 0.7606837606837606,
+          "f1": 0.6095890410958904,
+          "support": 117,
+          "predicted": 175
+        },
+        "antisemitism": {
+          "tp": 55,
+          "fp": 14,
+          "fn": 27,
+          "precision": 0.7971014492753623,
+          "recall": 0.6707317073170732,
+          "f1": 0.728476821192053,
+          "support": 82,
+          "predicted": 69
+        },
+        "islamophobia": {
+          "tp": 18,
+          "fp": 11,
+          "fn": 14,
+          "precision": 0.6206896551724138,
+          "recall": 0.5625,
+          "f1": 0.5901639344262296,
+          "support": 32,
+          "predicted": 29
+        },
+        "rusophobia": {
+          "tp": 7,
+          "fp": 14,
+          "fn": 13,
+          "precision": 0.3333333333333333,
+          "recall": 0.35,
+          "f1": 0.3414634146341463,
+          "support": 20,
+          "predicted": 21
+        },
+        "sinophobia": {
+          "tp": 10,
+          "fp": 47,
+          "fn": 8,
+          "precision": 0.17543859649122806,
+          "recall": 0.5555555555555556,
+          "f1": 0.26666666666666666,
+          "support": 18,
+          "predicted": 57
+        },
+        "misogyny": {
+          "tp": 12,
+          "fp": 16,
+          "fn": 12,
+          "precision": 0.42857142857142855,
+          "recall": 0.5,
+          "f1": 0.4615384615384615,
+          "support": 24,
+          "predicted": 28
+        },
+        "transphobia": {
+          "tp": 5,
+          "fp": 6,
+          "fn": 5,
+          "precision": 0.45454545454545453,
+          "recall": 0.5,
+          "f1": 0.47619047619047616,
+          "support": 10,
+          "predicted": 11
+        },
+        "homophobia": {
+          "tp": 6,
+          "fp": 19,
+          "fn": 5,
+          "precision": 0.24,
+          "recall": 0.5454545454545454,
+          "f1": 0.3333333333333333,
+          "support": 11,
+          "predicted": 25
+        },
+        "institutional_distrust": {
+          "tp": 24,
+          "fp": 45,
+          "fn": 24,
+          "precision": 0.34782608695652173,
+          "recall": 0.5,
+          "f1": 0.41025641025641024,
+          "support": 48,
+          "predicted": 69
+        },
+        "violence_glorification": {
+          "tp": 4,
+          "fp": 10,
+          "fn": 2,
+          "precision": 0.2857142857142857,
+          "recall": 0.6666666666666666,
+          "f1": 0.4,
+          "support": 6,
+          "predicted": 14
+        },
+        "accelerationism": {
+          "tp": 2,
+          "fp": 11,
+          "fn": 3,
+          "precision": 0.15384615384615385,
+          "recall": 0.4,
+          "f1": 0.2222222222222222,
+          "support": 5,
+          "predicted": 13
+        },
+        "meta_topic": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0,
+          "predicted": 0
+        },
+        "none": {
+          "tp": 587,
+          "fp": 69,
+          "fn": 115,
+          "precision": 0.8948170731707317,
+          "recall": 0.8361823361823362,
+          "f1": 0.8645066273932253,
+          "support": 702,
+          "predicted": 656
+        },
+        "unclear": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 1,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 1,
+          "predicted": 0
+        }
+      },
+      "bootstrap_macro_f1": {
+        "low": 0.3513989716333492,
+        "high": 0.469659231794304,
+        "reps": 1000,
+        "threads": 1000
+      },
+      "toxicity": {
+        "available": false
+      },
+      "exact_match": 0.643,
+      "mean_labels_predicted": 1.5
+    },
+    "laya-frozen-softce": {
+      "model": "laya-frozen-softce",
+      "split": "dev",
+      "available": true,
+      "rows": 1000,
+      "thresholds": {
+        "conspiracy": 0.0863,
+        "ethnonationalism": 0.19,
+        "racism": 0.197,
+        "antisemitism": 0.2911,
+        "islamophobia": 0.2968,
+        "rusophobia": 0.2145,
+        "sinophobia": 0.2695,
+        "misogyny": 0.2339,
+        "transphobia": 0.2157,
+        "homophobia": 0.1185,
+        "institutional_distrust": 0.1195,
+        "violence_glorification": 0.7986,
+        "accelerationism": 0.2,
+        "meta_topic": 0.8916,
+        "none": 0.4456,
+        "unclear": 0.0111
+      },
+      "macro_f1": 0.2054139506172146,
+      "substantive_macro_f1": 0.17192064218616648,
+      "micro": {
+        "tp": 771,
+        "fp": 380,
+        "fn": 517,
+        "precision": 0.6698523023457863,
+        "recall": 0.5986024844720497,
+        "f1": 0.6322263222632226
+      },
+      "per_label": {
+        "conspiracy": {
+          "tp": 6,
+          "fp": 8,
+          "fn": 70,
+          "precision": 0.42857142857142855,
+          "recall": 0.07894736842105263,
+          "f1": 0.13333333333333333,
+          "support": 76,
+          "predicted": 14
+        },
+        "ethnonationalism": {
+          "tp": 26,
+          "fp": 33,
+          "fn": 110,
+          "precision": 0.4406779661016949,
+          "recall": 0.19117647058823528,
+          "f1": 0.26666666666666666,
+          "support": 136,
+          "predicted": 59
+        },
+        "racism": {
+          "tp": 39,
+          "fp": 20,
+          "fn": 78,
+          "precision": 0.6610169491525424,
+          "recall": 0.3333333333333333,
+          "f1": 0.4431818181818182,
+          "support": 117,
+          "predicted": 59
+        },
+        "antisemitism": {
+          "tp": 23,
+          "fp": 8,
+          "fn": 59,
+          "precision": 0.7419354838709677,
+          "recall": 0.2804878048780488,
+          "f1": 0.40707964601769914,
+          "support": 82,
+          "predicted": 31
+        },
+        "islamophobia": {
+          "tp": 2,
+          "fp": 5,
+          "fn": 30,
+          "precision": 0.2857142857142857,
+          "recall": 0.0625,
+          "f1": 0.10256410256410256,
+          "support": 32,
+          "predicted": 7
+        },
+        "rusophobia": {
+          "tp": 1,
+          "fp": 10,
+          "fn": 19,
+          "precision": 0.09090909090909091,
+          "recall": 0.05,
+          "f1": 0.06451612903225806,
+          "support": 20,
+          "predicted": 11
+        },
+        "sinophobia": {
+          "tp": 0,
+          "fp": 13,
+          "fn": 18,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 18,
+          "predicted": 13
+        },
+        "misogyny": {
+          "tp": 6,
+          "fp": 3,
+          "fn": 18,
+          "precision": 0.6666666666666666,
+          "recall": 0.25,
+          "f1": 0.36363636363636365,
+          "support": 24,
+          "predicted": 9
+        },
+        "transphobia": {
+          "tp": 1,
+          "fp": 2,
+          "fn": 9,
+          "precision": 0.3333333333333333,
+          "recall": 0.1,
+          "f1": 0.15384615384615383,
+          "support": 10,
+          "predicted": 3
+        },
+        "homophobia": {
+          "tp": 2,
+          "fp": 6,
+          "fn": 9,
+          "precision": 0.25,
+          "recall": 0.18181818181818182,
+          "f1": 0.2105263157894737,
+          "support": 11,
+          "predicted": 8
+        },
+        "institutional_distrust": {
+          "tp": 2,
+          "fp": 15,
+          "fn": 46,
+          "precision": 0.11764705882352941,
+          "recall": 0.041666666666666664,
+          "f1": 0.06153846153846154,
+          "support": 48,
+          "predicted": 17
+        },
+        "violence_glorification": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 6,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 6,
+          "predicted": 0
+        },
+        "accelerationism": {
+          "tp": 1,
+          "fp": 4,
+          "fn": 4,
+          "precision": 0.2,
+          "recall": 0.2,
+          "f1": 0.20000000000000004,
+          "support": 5,
+          "predicted": 5
+        },
+        "meta_topic": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0,
+          "predicted": 0
+        },
+        "none": {
+          "tp": 662,
+          "fp": 141,
+          "fn": 40,
+          "precision": 0.8244084682440846,
+          "recall": 0.9430199430199431,
+          "f1": 0.8797342192691029,
+          "support": 702,
+          "predicted": 803
+        },
+        "unclear": {
+          "tp": 0,
+          "fp": 112,
+          "fn": 1,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 1,
+          "predicted": 112
+        }
+      },
+      "bootstrap_macro_f1": {
+        "low": 0.15357586705388,
+        "high": 0.25062119122914683,
+        "reps": 1000,
+        "threads": 1000
+      },
+      "toxicity": {
+        "available": true,
+        "n": 1000,
+        "accuracy": 0.616,
+        "mae": 0.546,
+        "qwk": 0.5284344839667725,
+        "binary": {
+          "tp": 122,
+          "fp": 62,
+          "fn": 145,
+          "precision": 0.6630434782608695,
+          "recall": 0.45692883895131087,
+          "f1": 0.5410199556541021
+        },
+        "confusion": [
+          [
+            471,
+            29,
+            8,
+            15
+          ],
+          [
+            99,
+            72,
+            20,
+            19
+          ],
+          [
+            64,
+            53,
+            49,
+            19
+          ],
+          [
+            13,
+            15,
+            30,
+            24
+          ]
+        ]
+      },
+      "exact_match": 0.676,
+      "mean_labels_predicted": 1.151
     },
     "tfidf-lr": {
       "model": "tfidf-lr",
@@ -663,5 +1115,5 @@
     }
   },
   "ranking_dev_threshold": "macro_f1",
-  "created_utc": "2026-11-13T04:16:13.362831+00:00"
+  "created_utc": "2026-11-28T00:19:51.104231+00:00"
 }

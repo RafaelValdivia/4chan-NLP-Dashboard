@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+from math import ceil
 from pathlib import Path
 from typing import Any
+
+os.environ.setdefault("USE_TF", "0")
+os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 
 from keklab.classification.manifest import write_manifest
 from keklab.training import data
@@ -36,8 +41,12 @@ def restore_metadata() -> dict[str, Any]:
     config = json.loads(tokenizer_config.read_text(encoding="utf-8"))
     if config.get("tokenizer_class") != "DebertaV2Tokenizer":
         config["tokenizer_class"] = "DebertaV2Tokenizer"
-        tokenizer_config.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
         restored.append("tokenizer_class")
+    if config.get("model_max_length") != 384:
+        config["model_max_length"] = 384
+        restored.append("model_max_length")
+    if "tokenizer_class" in restored or "model_max_length" in restored:
+        tokenizer_config.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     return {"restored": restored, "model": str(BASE_MODEL)}
 
 
@@ -47,19 +56,50 @@ def _load_dataset(path: Path) -> list[dict[str, Any]]:
     ]
 
 
+def _cuda_device() -> Any:
+    import torch
+
+    if not torch.cuda.is_available():
+        raise RuntimeError("CUDA unavailable; GLiNER jobs do not fall back to CPU")
+    return torch.device("cuda")
+
+
+def _guard_oom_skips() -> None:
+    import gliner.training.trainer as gliner_trainer
+
+    logger = gliner_trainer.logger
+    warning = logger.warning
+    if getattr(warning, "_keklab_oom_guard", False):
+        return
+
+    def guarded(message: Any, *args: Any, **kwargs: Any) -> Any:
+        rendered = f"{message} {' '.join(str(arg) for arg in args)}".lower()
+        if "out of memory" in rendered or "oom" in rendered:
+            raise RuntimeError("CUDA OOM during GLiNER training; refusing to skip batch")
+        return warning(message, *args, **kwargs)
+
+    guarded._keklab_oom_guard = True
+    logger.warning = guarded
+
+
 def train(params: dict[str, Any]) -> dict[str, Any]:
     from gliner import GLiNER
 
+    device = _cuda_device()
+    _guard_oom_skips()
     metadata = restore_metadata()
-    model = GLiNER.from_pretrained(str(BASE_MODEL), local_files_only=True)
     train_data = _load_dataset(data.paths()["gliner_train"])
     dev_data = _load_dataset(data.paths()["gliner_dev"])
     out_dir = MODEL_ROOT / "gliner-finetune"
     out_dir.mkdir(parents=True, exist_ok=True)
     epochs = int(params.get("epochs", 3))
+    grad_accum = max(1, int(params.get("gradient_accumulation_steps", 8)))
+    device_used = str(device)
     errors: list[str] = []
-    for batch in (int(params.get("micro_batch", 2)), 1):
-        steps = max(10, (len(train_data) * epochs) // max(1, batch))
+    for batch in dict.fromkeys((int(params.get("micro_batch", 1)), 1)):
+        model = GLiNER.from_pretrained(str(BASE_MODEL), local_files_only=True)
+        model.to(device)
+        steps = max(1, ceil(len(train_data) * epochs / (batch * grad_accum)))
         try:
             trainer = model.train_model(
                 train_dataset=train_data,
@@ -68,10 +108,12 @@ def train(params: dict[str, Any]) -> dict[str, Any]:
                 max_steps=steps,
                 per_device_train_batch_size=batch,
                 per_device_eval_batch_size=batch,
-                gradient_accumulation_steps=8,
+                gradient_accumulation_steps=grad_accum,
                 learning_rate=float(params.get("learning_rate", 5e-5)),
                 num_train_epochs=epochs,
-                fp16=_cuda_ok(),
+                fp16=False,
+                use_cpu=False,
+                dataloader_num_workers=0,
                 logging_steps=10,
                 save_strategy="no",
                 report_to="none",
@@ -87,7 +129,11 @@ def train(params: dict[str, Any]) -> dict[str, Any]:
                 "dev_rows": len(dev_data),
                 "epochs": epochs,
                 "micro_batch": batch,
+                "gradient_accumulation_steps": grad_accum,
                 "max_steps": steps,
+                "precision": "fp32",
+                "device": device_used,
+                "token_max_length": 384,
                 "errors": errors,
             }
             write_manifest(data.MANIFESTS_DIR / "gliner-finetune.json", manifest)
@@ -99,19 +145,12 @@ def train(params: dict[str, Any]) -> dict[str, Any]:
     raise RuntimeError("GLiNER training failed: " + " | ".join(errors))
 
 
-def _cuda_ok() -> bool:
-    try:
-        import torch
-
-        return bool(torch.cuda.is_available())
-    except Exception:
-        return False
-
-
 def predict(params: dict[str, Any]) -> dict[str, Any]:
     from gliner import GLiNER
 
+    device = _cuda_device()
     model = GLiNER.from_pretrained(str(MODEL_ROOT / "gliner-finetune"), local_files_only=True)
+    model.to(device)
     labels = list(data.SUBSTANTIVE_FRAMES)
     counts: dict[str, int] = {}
     for split in ("dev", "test"):

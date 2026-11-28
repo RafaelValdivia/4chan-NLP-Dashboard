@@ -28,12 +28,30 @@ def test_select_thresholds_prefers_separable_score() -> None:
     assert thresholds["racism"] > 0.2
 
 
+def test_select_thresholds_does_not_score_absent_labels() -> None:
+    row = _row("1", "racism", 0.9)
+    row["probs"].pop("none")
+    row["probs"].pop("unclear")
+    thresholds = evaluate.select_thresholds([row])
+    assert thresholds["none"] == 1.0
+    assert thresholds["unclear"] == 1.0
+
+
 def test_postprocess_keeps_special_labels_exclusive() -> None:
     probs = {name: 0.0 for name in FRAME_LABELS}
     probs["none"] = 0.9
     probs["racism"] = 0.8
     thresholds = {name: 0.5 for name in FRAME_LABELS}
     assert evaluate._postprocess(probs, thresholds) == {"none"}
+
+
+def test_postprocess_ignores_absent_special_labels() -> None:
+    probs = {name: 0.0 for name in FRAME_LABELS if name not in {"none", "unclear"}}
+    probs["racism"] = 0.9
+    thresholds = {name: 0.5 for name in FRAME_LABELS}
+    thresholds["none"] = 1.0
+    thresholds["unclear"] = 1.0
+    assert evaluate._postprocess(probs, thresholds) == {"racism"}
 
 
 def test_qwk_perfect_and_reversed() -> None:

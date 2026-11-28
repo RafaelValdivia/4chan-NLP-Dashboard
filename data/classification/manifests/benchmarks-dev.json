@@ -1,0 +1,71 @@
+{
+  "kind": "benchmarks_dev",
+  "split": "dev",
+  "scope": "classic and neural algorithms with dev predictions",
+  "models": [
+    "gliner-finetune",
+    "tfidf-lr",
+    "bow-svm",
+    "emb-lr",
+    "laya-frozen-softce"
+  ],
+  "excluded": {
+    "laya-frozen-rlcd": "pending optional run; no predictions",
+    "laya-full-attempt": "pending optional run; no predictions"
+  },
+  "report": {
+    "path": "data/classification/reports/benchmarks-dev.md",
+    "sha256": "1b2bc2be3685c1f67aacc15343dbc3aca093911e666dc345e70cb13c4bb925f0"
+  },
+  "evaluation": {
+    "path": "data/classification/reports/evaluation-dev.json",
+    "sha256": "1ec5dabc4d003bb78345dadc423a9b06737d7c24f923f0ac4708822002fd23bb"
+  },
+  "predictions": {
+    "gliner-finetune": {
+      "dev": "a9d1f4a74785ea303dca82c803c196dbb6d2c788c407d08a7970022162d75ebf",
+      "test": "63f955844badf074eeb5f7cc734e9053774a3505393b800bb96bffc3dc866998"
+    },
+    "tfidf-lr": {
+      "dev": "ffaa8980f1bb0c21330c4030081fa1b7da643e8ae38a03a512a72b32872cf004",
+      "test": "0c6191efecf09e14261230b3c0f007c4dc55e1e8700692ae3da3c2de1454f04c"
+    },
+    "bow-svm": {
+      "dev": "4232ccfa5627ca5dfb2f639e552c95146bb13b2cde08d6804bd4ad37b5408a16",
+      "test": "ca89cc8fb1de3d363229765425c7cd9341833e71f6495b79d56327208d430564"
+    },
+    "emb-lr": {
+      "dev": "d78fbc825b934ac69717ddb92e8c00401fb26f6a8991fb76fea3d4249c4cf327",
+      "test": "f72768fa541b6e4e8fe23594545fe775be1d06b81cdd01a11c4e05cc6cde78d3"
+    },
+    "laya-frozen-softce": {
+      "dev": "666a61a952815341b8d45c8ee1e21fddf413fbe2e7b68051db76509278c4e47a",
+      "test": "3d984bb548b781a26a8a60b0679acf775b7b1081116ae5e2c090d5113ba1bcc6"
+    }
+  },
+  "frozen_test_sha256": "afae38a9157c64197c83839812a4846918a4506f51c02c916c51ef6f8fde21b4",
+  "test_scored": false,
+  "evaluation_fix": "Absent labels are no longer assigned a 0.0 score during GLiNER threshold selection or post-processing.",
+  "queue_jobs": {
+    "baselines": {
+      "id": "20261112164154-c637b2b2-baselines",
+      "seconds": 47.2,
+      "returncode": 0
+    },
+    "evaluate_dev": {
+      "id": "20261112164154-3421ef29-evaluate",
+      "seconds": 25.4,
+      "returncode": 0
+    }
+  },
+  "environment": {
+    "python": "3.12.3",
+    "scikit-learn": "1.9.1",
+    "numpy": "2.5.4",
+    "pandas": "3.0.3",
+    "scipy": "1.18.0",
+    "joblib": "1.5.3",
+    "pytest": "9.2.0"
+  },
+  "git_commit": "bf4709c"
+}

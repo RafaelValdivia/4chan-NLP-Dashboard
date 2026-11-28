@@ -33,8 +33,12 @@ def _f1(y_true: list[int], y_pred: list[int]) -> float:
 def select_thresholds(rows: list[dict[str, Any]]) -> dict[str, float]:
     thresholds: dict[str, float] = {}
     for label in FRAME_LABELS:
-        truth = [int(row["y_true"].get(label, 0)) for row in rows]
-        scores = [float(row.get("probs", {}).get(label, 0.0)) for row in rows]
+        scored_rows = [row for row in rows if label in (row.get("probs") or {})]
+        if not scored_rows:
+            thresholds[label] = 1.0
+            continue
+        truth = [int(row["y_true"].get(label, 0)) for row in scored_rows]
+        scores = [float(row["probs"][label]) for row in scored_rows]
         candidates = {0.5}
         candidates.update(round(value, 6) for value in scores)
         best_threshold = 0.5
@@ -50,7 +54,11 @@ def select_thresholds(rows: list[dict[str, Any]]) -> dict[str, float]:
 
 
 def _postprocess(probs: dict[str, float], thresholds: dict[str, float]) -> set[str]:
-    selected = {label for label in FRAME_LABELS if float(probs.get(label, 0.0)) >= thresholds.get(label, 0.5)}
+    selected = {
+        label
+        for label in FRAME_LABELS
+        if label in probs and float(probs[label]) >= thresholds.get(label, 0.5)
+    }
     specials = [label for label in SPECIAL_LABELS if label in selected]
     if specials:
         keep = max(specials, key=lambda label: float(probs.get(label, 0.0)))

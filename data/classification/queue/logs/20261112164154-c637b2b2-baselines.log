@@ -1,0 +1,17 @@
+=== 2026-11-28T00:18:38.647599+00:00 start baselines attempt 1 ===
+job=20261112164154-c637b2b2-baselines type=baselines params={}
+{
+  "tfidf-lr": {
+    "features": 12029,
+    "train_rows": 3000
+  },
+  "bow-svm": {
+    "features": 12029,
+    "train_rows": 3000
+  },
+  "emb-lr": {
+    "components": 256,
+    "train_rows": 3000
+  }
+}
+=== 2026-11-28T00:19:25.826059+00:00 exit 0 in 47.2s ===

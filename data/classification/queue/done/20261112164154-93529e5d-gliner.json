@@ -1,0 +1,26 @@
+{
+  "attempts": 2,
+  "created_utc": "2026-11-12T16:41:54.958184+00:00",
+  "depends_on": [
+    "20261112164154-b8d1a458-export",
+    "20261112164154-c8b7d55a-setup"
+  ],
+  "finished_utc": "2026-11-27T23:59:35.701449+00:00",
+  "id": "20261112164154-93529e5d-gliner",
+  "last_error": "transient failure; retry 1/1",
+  "log": "/home/flynn/4chan-NLP-Dashboard/data/classification/queue/logs/20261112164154-93529e5d-gliner.log",
+  "max_retries": 1,
+  "name": "gliner-finetune",
+  "params": {
+    "gradient_accumulation_steps": 8,
+    "micro_batch": 1
+  },
+  "pid": 18317,
+  "returncode": 0,
+  "seconds": 974.4,
+  "started_utc": "2026-11-27T23:43:21.334938+00:00",
+  "state": "done",
+  "timeout_s": 28800,
+  "type": "gliner",
+  "updated_utc": "2026-11-27T23:59:35.701483+00:00"
+}

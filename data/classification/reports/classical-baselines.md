@@ -1,5 +1,8 @@
 # Classical baselines — dev metrics (threshold-selected)
 
+This historical report is superseded by `benchmarks-dev.md`, which records the
+current queued re-run, updated hashes, and all classic/neural models.
+
 Date: 2026-11-13  
 Train rows: 3,000 · Dev rows: 1,000 · Test rows: 1,000  
 Labels: 16 frame labels (including `none` and `unclear`) + toxicity only for `tfidf-lr`.

@@ -2,11 +2,11 @@
   "kind": "classical_baselines",
   "models": {
     "tfidf-lr": {
-      "features": 12029,
+      "features": 50000,
       "train_rows": 3000
     },
     "bow-svm": {
-      "features": 12029,
+      "features": 50000,
       "train_rows": 3000
     },
     "emb-lr": {
@@ -14,14 +14,11 @@
       "train_rows": 3000
     }
   },
-  "created_utc": "2026-11-13T04:09:05.414161+00:00",
+  "created_utc": "2026-11-28T00:19:25.678076+00:00",
   "hyperparameters": {
     "tfidf-lr": {
       "vectorizer": "TfidfVectorizer",
-      "ngram_range": [
-        1,
-        2
-      ],
+      "ngram_range": [1, 2],
       "max_features": 50000,
       "min_df": 2,
       "sublinear_tf": true,
@@ -33,10 +30,7 @@
     },
     "bow-svm": {
       "vectorizer": "CountVectorizer",
-      "ngram_range": [
-        1,
-        2
-      ],
+      "ngram_range": [1, 2],
       "max_features": 50000,
       "min_df": 2,
       "binary": true,
@@ -47,10 +41,7 @@
     },
     "emb-lr": {
       "vectorizer": "TfidfVectorizer",
-      "ngram_range": [
-        1,
-        2
-      ],
+      "ngram_range": [1, 2],
       "max_features": 50000,
       "min_df": 2,
       "sublinear_tf": true,
@@ -79,14 +70,14 @@
   "environment": {
     "python": "3.12.3",
     "venv": "/home/flynn/PyVenvs/NetworkAnalysis",
-    "scikit-learn": "1.9.0",
-    "numpy": "2.5.0",
+    "scikit-learn": "1.9.1",
+    "numpy": "2.5.4",
     "pandas": "3.0.3",
     "scipy": "1.18.0",
     "joblib": "1.5.3"
   },
   "git": {
-    "commit": "58443a3312fd77425d0fe42acb3e6f3af20c4766",
+    "commit": "bf4709c",
     "tree_dirty_at_documentation": true
   },
   "data": {
@@ -109,11 +100,11 @@
       },
       "bow-svm/dev": {
         "path": "data/classification/predictions/bow-svm/dev.jsonl",
-        "sha256": "caf212d4d27f18a51912995c90f97aa3238fa098534a07e370c0b285f3ad8b0f"
+        "sha256": "4232ccfa5627ca5dfb2f639e552c95146bb13b2cde08d6804bd4ad37b5408a16"
       },
       "bow-svm/test": {
         "path": "data/classification/predictions/bow-svm/test.jsonl",
-        "sha256": "e5f410ae481699f8a74c736fec294d6748aef8cb46b38899c6a036160b766d4d"
+        "sha256": "ca89cc8fb1de3d363229765425c7cd9341833e71f6495b79d56327208d430564"
       },
       "emb-lr/dev": {
         "path": "data/classification/predictions/emb-lr/dev.jsonl",
@@ -126,24 +117,30 @@
     },
     "evaluation_dev": {
       "path": "data/classification/reports/evaluation-dev.json",
-      "sha256": "3399c32d64cd5ce2e6397427a194f6161fe25ee71e8fc76f1fd882a9767e5392"
+      "sha256": "1ec5dabc4d003bb78345dadc423a9b06737d7c24f923f0ac4708822002fd23bb"
     },
     "report": {
       "path": "data/classification/reports/classical-baselines.md",
-      "sha256": "442997ab5432e9ceea15e8d6809140dc15d33405b7f66784854364ff2a6b153e"
+      "sha256": "0a656aeedb27081a2b52831277883599ddb03536ba408f2a65dbdad62a777104"
+    },
+    "consolidated_report": {
+      "path": "data/classification/reports/benchmarks-dev.md",
+      "sha256": "1b2bc2be3685c1f67aacc15343dbc3aca093911e666dc345e70cb13c4bb925f0"
     }
   },
-  "command": "PYTHONPATH=src /home/flynn/PyVenvs/NetworkAnalysis/bin/python -c \"from keklab.training import baselines_runner; import json; print(json.dumps(baselines_runner.run(), indent=2))\"",
+  "command": "PYTHONPATH=src /home/flynn/PyVenvs/NetworkAnalysis/bin/python -m keklab.training.jobs --job data/classification/queue/running/20261112164154-c637b2b2-baselines.json",
   "runtime": {
-    "recorded": false,
-    "note": "Wall-clock runtime was not instrumented."
+    "recorded": true,
+    "queue_seconds": 47.2,
+    "returncode": 0
   },
   "provenance": {
-    "execution": "direct invocation outside the persistent queue",
-    "reason": "queued baselines job depends on setup; setup is blocked by corrupt CUDA wheels",
+    "execution": "persistent queue re-run after setup completed",
+    "original_execution": "direct invocation outside the persistent queue while setup was blocked by corrupt CUDA wheels",
     "queue_job": "20261112164154-c637b2b2-baselines",
+    "log": "data/classification/queue/logs/20261112164154-c637b2b2-baselines.log",
     "test_scored": false,
-    "test_note": "Test predictions were generated but not evaluated; no evaluation-test.json exists."
+    "test_note": "Test predictions were regenerated but not evaluated; no evaluation-test.json exists."
   },
-  "documented_utc": "2026-11-13T04:34:55.752519+00:00"
+  "documented_utc": "2026-11-28T00:25:00+00:00"
 }

@@ -1,19 +1,25 @@
 {
-  "attempts": 0,
+  "attempts": 1,
   "created_utc": "2026-11-12T16:41:54.958496+00:00",
   "depends_on": [
     "20261112164154-fc2f162b-laya",
     "20261112164154-93529e5d-gliner",
     "20261112164154-c637b2b2-baselines"
   ],
+  "finished_utc": "2026-11-28T00:19:51.181939+00:00",
   "id": "20261112164154-3421ef29-evaluate",
+  "log": "/home/flynn/4chan-NLP-Dashboard/data/classification/queue/logs/20261112164154-3421ef29-evaluate.log",
   "max_retries": 0,
   "name": "evaluate-dev",
   "params": {
     "split": "dev"
   },
-  "state": "pending",
+  "pid": 24819,
+  "returncode": 0,
+  "seconds": 25.4,
+  "started_utc": "2026-11-28T00:19:25.826959+00:00",
+  "state": "done",
   "timeout_s": 3600,
   "type": "evaluate",
-  "updated_utc": "2026-11-12T16:41:54.958499+00:00"
+  "updated_utc": "2026-11-28T00:19:51.181974+00:00"
 }
