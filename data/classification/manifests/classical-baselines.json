@@ -124,7 +124,7 @@
       "sha256": "0a656aeedb27081a2b52831277883599ddb03536ba408f2a65dbdad62a777104"
     },
     "consolidated_report": {
-      "path": "data/classification/reports/benchmarks-dev.md",
+      "path": "docs/benchmarks-dev.md",
       "sha256": "1b2bc2be3685c1f67aacc15343dbc3aca093911e666dc345e70cb13c4bb925f0"
     }
   },

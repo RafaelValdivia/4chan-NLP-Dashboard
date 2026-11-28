@@ -52,7 +52,7 @@ evaluó ni se marcó el test congelado.
 
 ## 4. Estado final
 
-- Informe consolidado: `data/classification/reports/benchmarks-dev.md`.
+- Informe consolidado: `docs/benchmarks-dev.md`.
 - Métricas completas: `data/classification/reports/evaluation-dev.json`.
 - Manifest del benchmark: `data/classification/manifests/benchmarks-dev.json`.
 - Cola: 6 jobs en `done`, 2 opcionales de Laya en `pending`, 2 jobs del test

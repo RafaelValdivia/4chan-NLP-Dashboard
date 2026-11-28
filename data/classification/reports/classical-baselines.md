@@ -1,7 +1,7 @@
 # Classical baselines — dev metrics (threshold-selected)
 
-This historical report is superseded by `benchmarks-dev.md`, which records the
-current queued re-run, updated hashes, and all classic/neural models.
+This historical report is superseded by `docs/benchmarks-dev.md`, which records
+the current queued re-run, updated hashes, and all classic/neural models.
 
 Date: 2026-11-13  
 Train rows: 3,000 · Dev rows: 1,000 · Test rows: 1,000  
